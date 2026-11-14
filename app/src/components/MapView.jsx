@@ -3,6 +3,9 @@ import proj4 from 'proj4'
 import { register } from 'ol/proj/proj4'
 import { get as getProjection } from 'ol/proj'
 import Map from 'ol/Map'
+import DragPan from 'ol/interaction/DragPan'
+import { defaults as defaultInteractions } from 'ol/interaction/defaults'
+import { shiftKeyOnly } from 'ol/events/condition'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import ImageLayer from 'ol/layer/Image'
@@ -97,17 +100,43 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
         maskLayer,
         new VectorLayer({
           source: route,
-          style: (f) =>
-            f.get('kind') === 'line'
-              ? new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
-              : pt(f.get('kind') === 'start' ? '#22c55e' : '#f59e0b'),
+          style: (f) => {
+            const k = f.get('kind')
+            if (k === 'line') return new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
+            if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
+            return pt(k === 'start' ? '#22c55e' : '#f59e0b')
+          },
         }),
       ],
       view: new View({ projection: MARS, center: [137.75, -5.25], resolution: 0.0035 }),
+      // el arrastre normal traza la ruta; Shift+arrastrar mueve el mapa
+      interactions: defaultInteractions({ dragPan: false, shiftDragZoom: false }).extend([new DragPan({ condition: shiftKeyOnly })]),
     })
-    map.on('click', (e) => pickRef.current(e.coordinate))
+    let dragging = false
+    const vp = map.getViewport()
+    const coord = (ev) => map.getEventCoordinate(ev)
+    const down = (ev) => {
+      if (ev.button !== 0 || ev.shiftKey) return
+      dragging = true
+      vp.setPointerCapture?.(ev.pointerId)
+      pickRef.current('down', coord(ev))
+    }
+    const move = (ev) => dragging && pickRef.current('move', coord(ev))
+    const up = (ev) => {
+      if (!dragging) return
+      dragging = false
+      pickRef.current('up', coord(ev))
+    }
+    vp.addEventListener('pointerdown', down)
+    vp.addEventListener('pointermove', move)
+    vp.addEventListener('pointerup', up)
     ref.current = { map, route, maskLayer, heatLayer }
-    return () => map.setTarget(undefined)
+    return () => {
+      vp.removeEventListener('pointerdown', down)
+      vp.removeEventListener('pointermove', move)
+      vp.removeEventListener('pointerup', up)
+      map.setTarget(undefined)
+    }
   }, [])
 
   // máscara de filtro
@@ -143,6 +172,8 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
     if (!dem) return
     const src = ref.current.route
     src.clear()
+    if (start && end)
+      src.addFeature(new Feature({ geometry: new LineString([dem.lonLat(...start), dem.lonLat(...end)]), kind: 'straight' }))
     if (route) {
       const coords = route.cells.map(([x, y]) => dem.lonLat(x, y))
       src.addFeature(new Feature({ geometry: new LineString(coords), kind: 'line' }))

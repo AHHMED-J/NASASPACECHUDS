@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
 import { loadDem } from './lib/dem'
-import { findRoute } from './lib/route'
+import { findRoute, isBlocked } from './lib/route'
 
 export default function App() {
   const [dem, setDem] = useState(null)
@@ -20,13 +20,15 @@ export default function App() {
   const route = useMemo(() => (dem && start && end ? findRoute(dem, start, end, filter, w) : null), [dem, start, end, filter, w])
   const noRoute = start && end && !route
 
-  const onPick = ([lon, lat]) => {
+  // arrastrar: 'down' fija el inicio, 'move' actualiza el destino (la ruta A* se recalcula en vivo)
+  const onPick = (phase, [lon, lat]) => {
     if (!dem) return
     const c = dem.cellOf(lon, lat)
     if (!c) return
-    if (!start || (start && end)) { setStart(c); setEnd(null) }
-    else setEnd(c)
+    if (phase === 'down') { setStart(c); setEnd(null) }
+    else if (phase === 'move' || phase === 'up') setEnd((prev) => (prev && prev[0] === c[0] && prev[1] === c[1] ? prev : c))
   }
+  const blockedEnd = dem && start && end && (isBlocked(dem, start[1] * dem.size + start[0], filter) || isBlocked(dem, end[1] * dem.size + end[0], filter))
 
   const stats = useMemo(() => {
     if (!route) return null
@@ -79,9 +81,8 @@ export default function App() {
 
         <section className="text-sm">
           <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Ruta</h2>
-          {!start && <p className="text-slate-400">Haz clic en el mapa para el <b className="text-green-400">inicio</b>.</p>}
-          {start && !end && <p className="text-slate-400">Ahora clic para el <b className="text-amber-400">destino</b>.</p>}
-          {noRoute && <p className="text-red-400">No hay ruta con estos filtros. Relájalos o cambia los puntos.</p>}
+          <p className="mb-2 text-slate-400">Mantén el clic en el <b className="text-green-400">inicio</b>, arrastra y suelta en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
+          {noRoute && <p className="text-red-400">{blockedEnd ? 'El inicio o el destino cae en una zona roja (bloqueada). Elige puntos fuera del rojo o relaja los filtros.' : 'No hay camino con estos filtros. Relájalos.'}</p>}
           {stats && (
             <dl className="grid grid-cols-2 gap-2">
               <div><dt className="text-xs text-slate-500">Distancia</dt><dd className="text-lg text-cyan-300">{stats.km.toFixed(1)} km</dd></div>
