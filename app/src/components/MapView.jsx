@@ -54,7 +54,7 @@ const canvasFor = (dem) => {
 function heatUrl(dem, layer) {
   const { c, ctx, img } = canvasFor(dem)
   // todas las capas se expresan como riesgo 0..1 (azul = mejor, rojo = peor)
-  const risk = { rad: dem.radRisk, rough: dem.roughRisk, comm: dem.commRisk, shade: dem.shade }[layer]
+  const risk = { rad: dem.radRisk, rough: dem.roughRisk, comm: dem.commRisk, shade: dem.shade, sand: dem.sandRisk }[layer]
   for (let i = 0; i < dem.n; i++) {
     const t = risk[i]
     if (Number.isNaN(t) || Number.isNaN(dem.elev[i])) continue
@@ -269,10 +269,13 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     const src = ref.current?.curSrc
     if (!src) return
     src.clear()
-    if (!curiosity?.length) return
+    if (!curiosity?.length) { ref.current.curFitted = false; return }
     const line = new LineString(curiosity)
     src.addFeature(new Feature({ geometry: line }))
-    ref.current.map.getView().fit(line.getExtent(), { padding: [120, 120, 120, 120], duration: 400 }) // acercar al recorrido
+    if (!ref.current.curFitted) { // acercar al recorrido solo la primera vez (no en cada cambio del recorte por sol)
+      ref.current.map.getView().fit(line.getExtent(), { padding: [120, 120, 120, 120], duration: 400 })
+      ref.current.curFitted = true
+    }
   }, [curiosity])
 
   return <div ref={el} className="h-full w-full" />

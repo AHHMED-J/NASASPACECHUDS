@@ -1,7 +1,7 @@
 // DEM de Gale a 1 m (USGS "Mars MSL Gale Merged DEM 1m", HiRISE+CTX+HRSC anclado a MOLA), zona de Curiosity.
 // Lee el GeoTIFF remoto (3.6 GB) por filas con peticiones parciales y lo reduce a celdas de CELL_M metros
 // promediando los píxeles de 1 m (ignorando nodata). Sale en binario Float32 (NaN = sin dato).
-// También calcula la rugosidad por celda (gale-rough.f32) a partir de los perfiles de 1 m.
+// También calcula la rugosidad por celda (gale50-rough.f32) a partir de los perfiles de 1 m.
 // Uso: npm run fetch-dem   (varios minutos; ~300 MB de descarga)
 // Fuente: https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m
 // CRS del archivo: "Mars_Equirectangular_clon0" (esfera R=3396190 m): lon = x/R, lat = y/R.
@@ -61,10 +61,10 @@ await Promise.all(Array.from({ length: CONCURRENCY }, async () => { for (let j; 
 let min = Infinity, max = -Infinity, valid = 0
 for (const v of out) if (!Number.isNaN(v)) { valid++; if (v < min) min = v; if (v > max) max = v }
 mkdirSync(new URL('../public/data/', import.meta.url), { recursive: true })
-writeFileSync(new URL('../public/data/gale-dem.f32', import.meta.url), Buffer.from(out.buffer))
-writeFileSync(new URL('../public/data/gale-rough.f32', import.meta.url), Buffer.from(rough.buffer))
+writeFileSync(new URL('../public/data/gale50-dem.f32', import.meta.url), Buffer.from(out.buffer))
+writeFileSync(new URL('../public/data/gale50-rough.f32', import.meta.url), Buffer.from(rough.buffer))
 writeFileSync(
-  new URL('../public/data/gale-dem.json', import.meta.url),
+  new URL('../public/data/gale50-dem.json', import.meta.url),
   JSON.stringify({
     w, h, cellM: CELL_M, bbox, elevMin: Math.round(min), elevMax: Math.round(max), validFraction: valid / (w * h),
     source: 'USGS Mars MSL Gale Merged DEM 1m v3 (HiRISE+CTX+HRSC, MOLA-tied), promediado a celdas de ' + CELL_M + ' m',

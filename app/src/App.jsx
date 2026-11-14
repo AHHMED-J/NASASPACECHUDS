@@ -10,26 +10,28 @@ import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
-import { loadCuriosity, compareRoutes, lengthKm } from './lib/curiosity'
+import { loadCuriosity, compareRoutes, cutAtSol, solDate } from './lib/curiosity'
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
 // 'Sol' queda en 0: no aporta seguridad (no modelamos calor/energía) y la sombra sigue disponible como capa.
-const W = { effort: 1, rad: 2, rough: 1, comm: 1, shade: 0 }
+const W = { effort: 1, rad: 2, rough: 1, comm: 1, shade: 0, sand: 1 }
 // Modo comparación con Curiosity: solo relieve (esfuerzo por subidas/bajadas + pendiente lateral, y el bloqueo por pendiente > 20°).
-const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, shade: 0 }
+const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, shade: 0, sand: 0 }
 const LAYERS = [
   ['none', 'Ninguna'],
   ['rad', 'Radiación (rojo = más dosis)'],
   ['rough', 'Rugosidad (rojo = más rugoso)'],
   ['comm', 'Comunicación (rojo = sin vista a la base)'],
   ['shade', 'Sombra (rojo = en sombra)'],
+  ['sand', 'Arena oscura estimada (rojo = arena)'],
 ]
 
 const Select = (props) => <select {...props} className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm" />
 const Title = ({ children }) => <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 
 export default function App() {
-  const [baseDem, setDem] = useState(null)
+  const [craterDem, setDem] = useState(null) // cráter completo, 200 m
+  const [detailDem, setDetailDem] = useState(null) // zona de Curiosity, 50 m (del DEM de 1 m)
   const [temp, setTemp] = useState(null)
   const [error, setError] = useState(null)
   const [solar, setSolar] = useState('mid')
@@ -38,7 +40,12 @@ export default function App() {
   const [maxElevSel, setMaxElevSel] = useState(null)
   const [bench, setBench] = useState(false) // comparar con el recorrido real de Curiosity
   const [curiosity, setCuriosity] = useState(null)
-  const w = bench ? W_RELIEF : W
+  const [benchRes, setBenchRes] = useState('detail') // DEM usado en la comparación
+  const [benchSand, setBenchSand] = useState(false) // en la comparación: además del relieve, evitar arena
+  const [solIdx, setSolIdx] = useState(null) // recorte del recorrido de Curiosity (índice en curiosity.sols; null = último)
+  const w = useMemo(() => (bench ? { ...W_RELIEF, sand: benchSand ? 1 : 0 } : W), [bench, benchSand])
+  const useDetail = bench && benchRes === 'detail'
+  const baseDem = useDetail ? detailDem : craterDem
   const [basemap, setBasemap] = useState('relief')
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
@@ -47,6 +54,9 @@ export default function App() {
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
   useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
+  useEffect(() => { if (useDetail && !detailDem) loadDem('gale50').then(setDetailDem).catch((e) => setError(e.message)) }, [useDetail, detailDem])
+  // al cambiar de DEM las celdas no coinciden: se reinicia la ruta
+  useEffect(() => { setStart(null); setEnd(null) }, [baseDem])
   useEffect(() => { if (bench && !curiosity) loadCuriosity().then(setCuriosity).catch((e) => setError(e.message)) }, [bench, curiosity])
 
   // sombras: dependen de la estación y la hora
@@ -141,14 +151,17 @@ export default function App() {
     }
   }, [route, dem, temp, ls, hour])
 
+  const solList = curiosity?.sols ?? []
+  const solSel = solList.length ? solList[solIdx ?? solList.length - 1][0] : null
+  const curCut = useMemo(() => (curiosity ? cutAtSol(curiosity, solSel) : null), [curiosity, solSel])
   const cmp = useMemo(() => {
-    if (!bench || !curiosity || !route || !dem) return null
+    if (!bench || !curCut || !route || !dem) return null
     const ours = route.cells.map(([x, y]) => dem.lonLat(x, y))
-    return { ...compareRoutes(ours, curiosity.coords), curKm: lengthKm(curiosity.coords) }
-  }, [bench, curiosity, route, dem])
+    return compareRoutes(ours, curCut.coords)
+  }, [bench, curCut, route, dem])
   const useCuriosityEnds = () => {
-    if (!dem || !curiosity) return
-    const a = curiosity.coords[0], b = curiosity.coords[curiosity.coords.length - 1]
+    if (!dem || !curCut) return
+    const a = curCut.coords[0], b = curCut.coords[curCut.coords.length - 1]
     setStart(dem.cellOf(a[0], a[1])); setEnd(dem.cellOf(b[0], b[1]))
   }
 
@@ -206,19 +219,31 @@ export default function App() {
             Mostrar recorrido real de Curiosity
           </label>
           {bench && (
-            <div className="mt-3 space-y-2 text-xs text-slate-400">
-              <p>En este modo nuestra ruta usa <b className="text-slate-200">solo el relieve</b> (subidas, pendiente lateral y el límite de {CONST.MAX_SLOPE_DEG}°). El recorrido de Curiosity solo se dibuja: no influye en nuestra ruta.</p>
-              {curiosity && <p><span className="text-fuchsia-300">━</span> Curiosity: {curiosity.distKm.toFixed(1)} km recorridos hasta el sol {curiosity.sol} (NASA/JPL).</p>}
-              <button className="rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40" disabled={!curiosity || !dem} onClick={useCuriosityEnds}>Usar su inicio y su posición actual</button>
+            <div className="mt-3 space-y-3 text-xs text-slate-400">
+              <p>Nuestra ruta usa <b className="text-slate-200">solo el relieve</b> (subidas, pendiente lateral y el límite de {CONST.MAX_SLOPE_DEG}°). El recorrido de Curiosity solo se dibuja: no influye en nuestra ruta.</p>
+              {curCut && solSel !== null && (
+                <label className="block">
+                  <div className="flex items-baseline justify-between"><span>Curiosity hasta el sol <b className="text-fuchsia-300">{solSel}</b></span><span>{solDate(solSel).toLocaleDateString('es', { year: 'numeric', month: 'short' })} · {curCut.km.toFixed(1)} km</span></div>
+                  <input type="range" className="mt-1 w-full accent-fuchsia-400" min={0} max={solList.length - 1} value={solIdx ?? solList.length - 1} onChange={(e) => setSolIdx(+e.target.value)} />
+                </label>
+              )}
+              <label className="block"><span>Relieve (DEM)</span>
+                <Select value={benchRes} onChange={(e) => setBenchRes(e.target.value)}>
+                  <option value="detail">50 m · zona de Curiosity (DEM de 1 m)</option>
+                  <option value="crater">200 m · cráter completo</option>
+                </Select>
+              </label>
+              <label className="flex items-center gap-2"><input type="checkbox" className="accent-amber-400" checked={benchSand} onChange={(e) => setBenchSand(e.target.checked)} /> Evitar arena oscura (dunas)</label>
+              <button className="rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40" disabled={!curCut || !dem} onClick={useCuriosityEnds}>Usar su inicio y su posición en ese sol</button>
               {cmp && (
                 <dl className="grid grid-cols-2 gap-2 rounded-md bg-white/5 px-3 py-2">
                   <div><dt>Distancia media a Curiosity</dt><dd className="text-base text-cyan-300">{(cmp.meanM / 1000).toFixed(2)} km</dd></div>
                   <div><dt>Distancia máxima</dt><dd className="text-base text-cyan-300">{(cmp.maxM / 1000).toFixed(2)} km</dd></div>
                   <div><dt>Ruta a &lt; {cmp.tolM} m de Curiosity</dt><dd className="text-base text-cyan-300">{cmp.within.toFixed(0)}%</dd></div>
-                  <div><dt>Largo: nuestra / Curiosity</dt><dd className="text-base text-cyan-300">{route.distanceKm.toFixed(1)} / {curiosity.distKm.toFixed(1)} km</dd></div>
+                  <div><dt>Largo: nuestra / Curiosity</dt><dd className="text-base text-cyan-300">{route.distanceKm.toFixed(1)} / {curCut.km.toFixed(1)} km</dd></div>
                 </dl>
               )}
-              <p className="text-[11px] text-slate-500">Ojo: Curiosity no buscó el camino más corto; se detuvo y desvió por objetivos científicos, arena y ruedas. Es un benchmark aproximado, y nuestro DEM es de {CONST.CELL_M} m.</p>
+              <p className="text-[11px] text-slate-500">Curiosity no buscó el camino más corto: se desvió por objetivos científicos, arena y daño a las ruedas. Es un benchmark aproximado.</p>
             </div>
           )}
         </section>
@@ -268,7 +293,7 @@ export default function App() {
             ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-400">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
           </dl>
         )}
-        <MapView curiosity={bench ? curiosity?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
+        <MapView curiosity={bench ? curCut?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
       </main>
 
       {showData && (

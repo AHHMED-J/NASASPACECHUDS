@@ -35,9 +35,13 @@ while (stack.length) {
 }
 const coords = pts.filter((_, i) => keep[i]).map(([x, y]) => [+x.toFixed(6), +y.toFixed(6)])
 const last = wps.features[wps.features.length - 1].properties
+// distancia acumulada oficial al final de cada sol con movimiento (para recortar el recorrido "hasta el sol X")
+const bySol = new Map()
+for (const f of wps.features) { const q = f.properties; bySol.set(q.sol, [+q.dist_km, +(+q.lon).toFixed(6), +(+q.lat).toFixed(6)]) }
+const sols = [...bySol].sort((a, b) => a[0] - b[0]).map(([sol, v]) => [sol, ...v]) // [sol, km, lon, lat]
 const out = {
   source: 'NASA/JPL MSL MMGIS: MSL_traverse.json / MSL_waypoints.json', url: BASE + 'MSL_traverse.json',
-  sol: last.sol, distKm: last.dist_km, points: pts.length, coords,
+  sol: last.sol, distKm: last.dist_km, points: pts.length, sols, coords,
 }
 writeFileSync(new URL('../public/data/curiosity-traverse.json', import.meta.url), JSON.stringify(out))
 console.log(`OK sol ${last.sol}, ${last.dist_km} km, ${pts.length} -> ${coords.length} puntos`)

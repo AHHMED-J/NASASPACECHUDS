@@ -87,6 +87,9 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Sombras" kind="modelo">
             Posición del Sol (geometría con la oblicuidad de Marte, latitud, estación y hora) y sombras del propio terreno desde el DEM. Es geometría, pero no calculamos cuánto enfría la sombra.
           </Row>
+          <Row title="Arena oscura (dunas)" kind="supuesto">
+            Estimada, no medida: celdas oscuras en la ortofoto HiRISE de Trek (~10 m/px, 6 % más oscuro de la escena) y lisas en el DEM de 1 m. Marca bien la franja de dunas Bagnold, pero solo existe en la zona de la ortofoto (alrededor de Curiosity) y puede confundir roca oscura o sombras con arena.
+          </Row>
           <Row title="Comunicación" kind="modelo">
             Línea de vista desde la base con antenas a {CONST.ANTENNA_H_M} m sobre el DEM. Aproximada: el DEM de {CONST.CELL_M} m no resuelve lomas pequeñas. Incluye la curvatura de Marte. No modela alcance de la radio.
           </Row>
@@ -111,7 +114,7 @@ export default function DataPanel({ onClose, state }) {
 
         <H>6 · Lo que NO se considera</H>
         <ul className="list-disc pl-5 text-sm text-slate-400">
-          <li>Arena, dunas y suelo blando (la ortofoto los muestra, la ruta no los evita).</li>
+          <li>Arena fuera de la zona de Curiosity (el mapa de arena solo cubre la ortofoto) y suelo blando que no se ve oscuro.</li>
           <li>Rocas individuales y pendiente a escala de metros.</li>
           <li>Consumo de oxígeno, energía o autonomía del traje; la gravedad de Marte en el esfuerzo.</li>
           <li>Tormentas de polvo, cambios del escenario de polvo, y variación de la temperatura dentro de la zona.</li>
