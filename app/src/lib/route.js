@@ -39,7 +39,7 @@ export function isBlocked(dem, i, { maxElev, maxSlope }) {
 }
 
 /** Devuelve { cells:[[x,y]...], distanceKm } o null si no hay ruta. */
-export function findRoute(dem, start, end, filter) {
+export function findRoute(dem, start, end, filter, w = { slope: 1, rad: 0, temp: 0 }) {
   const { size } = dem
   const idx = ([x, y]) => y * size + x
   const s = idx(start), e = idx(end)
@@ -64,9 +64,10 @@ export function findRoute(dem, start, end, filter) {
         if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue
         const n = ny * size + nx
         if (isBlocked(dem, n, filter)) continue
-        // costo = distancia * penalización por pendiente (prefiere terreno suave)
-        const sl = dem.slope[n]
-        const cost = Math.hypot(dx, dy) * cellM * (1 + (sl / 10) ** 2)
+        // costo = distancia * (1 + penalizaciones ponderadas). Siempre >= distancia,
+        // así la heurística de distancia recta sigue siendo admisible (A* óptimo).
+        const pen = w.slope * (dem.slope[n] / 10) ** 2 + w.rad * 8 * dem.radRisk[n] + w.temp * 8 * dem.tempRisk[n]
+        const cost = Math.hypot(dx, dy) * cellM * (1 + pen)
         const ng = g[cur] + cost
         if (ng < g[n]) {
           g[n] = ng

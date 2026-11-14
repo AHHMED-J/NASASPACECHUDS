@@ -31,6 +31,24 @@ const tileGrid = new TileGrid({
   tileSize: 256,
 })
 
+function heatUrl(dem, layer) {
+  const { size } = dem
+  const risk = layer === 'rad' ? dem.radRisk : dem.tempRisk
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  const img = ctx.createImageData(size, size)
+  for (let i = 0; i < size * size; i++) {
+    const t = risk[i] // 0 bajo riesgo (azul) -> 1 alto (rojo)
+    img.data[i * 4] = 255 * t
+    img.data[i * 4 + 1] = 80 * (1 - Math.abs(t - 0.5) * 2)
+    img.data[i * 4 + 2] = 255 * (1 - t)
+    img.data[i * 4 + 3] = 170
+  }
+  ctx.putImageData(img, 0, 0)
+  return c.toDataURL()
+}
+
 function maskCanvas(dem, filter) {
   const { size } = dem
   const c = document.createElement('canvas')
@@ -52,7 +70,7 @@ function maskCanvas(dem, filter) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-export default function MapView({ dem, filter, route, start, end, onPick }) {
+export default function MapView({ dem, layer, filter, route, start, end, onPick }) {
   const el = useRef(null)
   const ref = useRef({})
   const pickRef = useRef(onPick)
@@ -61,6 +79,7 @@ export default function MapView({ dem, filter, route, start, end, onPick }) {
   useEffect(() => {
     const route = new VectorSource()
     const maskLayer = new ImageLayer({ opacity: 1 })
+    const heatLayer = new ImageLayer({ opacity: 1 })
     const map = new Map({
       target: el.current,
       layers: [
@@ -74,6 +93,7 @@ export default function MapView({ dem, filter, route, start, end, onPick }) {
             attributions: 'NASA Trek · MOLA',
           }),
         }),
+        heatLayer,
         maskLayer,
         new VectorLayer({
           source: route,
@@ -86,7 +106,7 @@ export default function MapView({ dem, filter, route, start, end, onPick }) {
       view: new View({ projection: MARS, center: [137.75, -5.25], resolution: 0.0035 }),
     })
     map.on('click', (e) => pickRef.current(e.coordinate))
-    ref.current = { map, route, maskLayer }
+    ref.current = { map, route, maskLayer, heatLayer }
     return () => map.setTarget(undefined)
   }, [])
 
@@ -102,6 +122,21 @@ export default function MapView({ dem, filter, route, start, end, onPick }) {
       }),
     )
   }, [dem, filter])
+
+  // capa simulada (radiación / temperatura)
+  useEffect(() => {
+    if (!dem) return
+    const { heatLayer } = ref.current
+    if (layer === 'none') return heatLayer.setSource(null)
+    heatLayer.setSource(
+      new ImageStatic({
+        url: heatUrl(dem, layer),
+        projection: MARS,
+        imageExtent: [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax],
+        interpolate: true,
+      }),
+    )
+  }, [dem, layer])
 
   // ruta + marcadores
   useEffect(() => {

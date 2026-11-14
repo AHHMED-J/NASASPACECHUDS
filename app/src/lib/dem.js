@@ -1,6 +1,8 @@
 // Carga del DEM recortado (Gale) y utilidades de celdas / pendiente.
 const M_PER_DEG = (2 * Math.PI * 3396190) / 360 // metros por grado en Marte (ecuador)
 
+import { simulate } from './sim'
+
 export async function loadDem() {
   const res = await fetch(`${import.meta.env.BASE_URL}data/gale-dem.json`)
   if (!res.ok) throw new Error('No se pudo cargar gale-dem.json (corre: npm run fetch-dem)')
@@ -30,5 +32,6 @@ export async function loadDem() {
       slope[y * size + x] = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI
     }
 
-  return { ...d, lonMin, latMin, lonMax, latMax, dLon, dLat, lonLat, cellOf, slope, mPerDeg: M_PER_DEG }
+  const out = { ...d, lonMin, latMin, lonMax, latMax, dLon, dLat, lonLat, cellOf, slope, mPerDeg: M_PER_DEG }
+  return { ...out, ...simulate(out) }
 }
