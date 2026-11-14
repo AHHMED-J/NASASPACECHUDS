@@ -38,8 +38,8 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Actividad solar" kind="modelo">{SOLAR[solar].label}. Cambia cuánto protege la atmósfera de la radiación.</Row>
           <Row title="Altura máxima" kind="info">{maxElev} m. Filtro de misión: bloquea todo lo más alto. No es un límite físico; la altura ya pesa vía la radiación.</Row>
           <Row title="Prioridades" kind="info">
-            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm}.
-            Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación) <b>no es una magnitud física</b>.
+            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · dunas {w.sand}.
+            Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación, ×{SCALE.sand} dunas) <b>no es una magnitud física</b>.
           </Row>
           <Row title="Inicio y destino" kind="info">Los dos puntos que marcas con clic en el mapa.</Row>
         </ul>
@@ -64,6 +64,10 @@ export default function DataPanel({ onClose, state }) {
             Desviación de la altura respecto a un plano en ventanas de 3×3 celdas (~600 m) del mismo DEM. Es un indicador de relieve irregular, no de rocas: a {CONST.CELL_M} m no se resuelven rocas ni escalones pequeños.
             Se convierte a riesgo 0–1 de forma <b>relativa a la zona</b> (percentil 95 = 1); no hay un umbral físico publicado.
           </Row>
+          <Row title="Campos de dunas" kind="real">
+            Base de datos global de dunas de Marte del USGS (MGD3, Hayward et al. 2007, <a className="text-cyan-400 underline" href="https://pubs.usgs.gov/of/2007/1158/" target="_blank" rel="noreferrer">OFR 2007-1158</a>): 2 campos en Gale (1370-050 con las dunas Bagnold, 425 km²; 1376-059, 414 km²), mapeados con imágenes THEMIS y MOC.
+            Cada celda guarda qué fracción cae dentro de un campo. Es el <b>contorno del campo</b>: dentro hay arena y también roca entre dunas. Encarece cruzar, no bloquea (Curiosity cruzó las dunas).
+          </Row>
           <Row title="Presión y temperatura de superficie" kind="modelo">
             Mars Climate Database v6 (LMD), escenario de polvo promedio, centro de la zona. Ahora: superficie {row ? (row.surf - 273.15).toFixed(0) : '–'} °C, aire {row ? (row.air - 273.15).toFixed(0) : '–'} °C, presión {row ? row.pres.toFixed(0) : '–'} Pa.
             Es un modelo climático, no una medición.
@@ -82,9 +86,6 @@ export default function DataPanel({ onClose, state }) {
           </Row>
           <Row title="Capa de sombras (solo visual)" kind="modelo">
             Posición del Sol (oblicuidad de Marte, latitud, estación y hora) y sombras del terreno desde el DEM. No influye en la ruta.
-          </Row>
-          <Row title="Arena oscura (dunas)" kind="supuesto">
-            Estimada, no medida: celdas oscuras en la ortofoto HiRISE de Trek (~10 m/px, 6 % más oscuro de la escena) y lisas en el DEM de 1 m. Marca bien la franja de dunas Bagnold, pero solo existe en la zona de la ortofoto (alrededor de Curiosity) y puede confundir roca oscura o sombras con arena.
           </Row>
           <Row title="Comunicación" kind="modelo">
             Línea de vista desde la base con antenas a {CONST.ANTENNA_H_M} m sobre el DEM. Aproximada: el DEM de {CONST.CELL_M} m no resuelve lomas pequeñas. Incluye la curvatura de Marte. No modela alcance de la radio.
@@ -110,7 +111,7 @@ export default function DataPanel({ onClose, state }) {
 
         <H>6 · Lo que NO se considera</H>
         <ul className="list-disc pl-5 text-sm text-slate-400">
-          <li>Arena fuera de la zona de Curiosity (el mapa de arena solo cubre la ortofoto) y suelo blando que no se ve oscuro.</li>
+          <li>Arena suelta fuera de los campos de dunas del USGS (parches pequeños, suelo blando) y la forma de cada duna dentro del campo.</li>
           <li>Rocas individuales y pendiente a escala de metros.</li>
           <li>Consumo de oxígeno, energía o autonomía del traje; la gravedad de Marte en el esfuerzo.</li>
           <li>Tormentas de polvo, cambios del escenario de polvo, y variación de la temperatura dentro de la zona.</li>

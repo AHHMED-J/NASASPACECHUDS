@@ -2,14 +2,13 @@
 import { simulate } from './radiation.js'
 import { viewshed } from './comm.js'
 
-// Mapa de arena (malla de 50 m de la zona de Curiosity), compartido por ambos DEM
-let sandGrid = null
-async function loadSand(base) {
-  if (sandGrid) return sandGrid
-  const [m, b] = await Promise.all([fetch(`${base}data/gale50-dem.json`), fetch(`${base}data/gale50-sand.u8`)])
-  if (!m.ok || !b.ok) return null
-  sandGrid = { meta: await m.json(), v: new Uint8Array(await b.arrayBuffer()) }
-  return sandGrid
+// Campos de dunas del USGS (MGD3), polígonos lon/lat compartidos por ambos DEM
+let dunes = null
+async function loadDunes(base) {
+  if (dunes) return dunes
+  const r = await fetch(`${base}data/gale-dunes.json`)
+  dunes = r.ok ? await r.json() : null
+  return dunes
 }
 
 /** prefix 'gale' = cráter completo (200 m), 'gale50' = zona de Curiosity (50 m, del DEM de 1 m) */
@@ -22,31 +21,41 @@ export async function loadDem(prefix = 'gale') {
   const meta = await metaRes.json()
   const elev = new Float32Array(await binRes.arrayBuffer())
   const rough = roughRes.ok ? new Float32Array(await roughRes.arrayBuffer()) : new Float32Array(elev.length).fill(NaN)
-  return buildDem(meta, elev, rough, await loadSand(base))
+  return buildDem(meta, elev, rough, await loadDunes(base))
 }
 
-// Muestrea el mapa de arena (0..1) en cada celda del DEM: promedio de 4x4 puntos dentro de la celda. NaN = sin dato.
-function sampleSand(dem, sand) {
-  const out = new Float32Array(dem.n).fill(NaN)
-  if (!sand) return out
-  const { w: sw, h: sh, bbox: [a0, b0, a1, b1] } = sand.meta
-  const sdx = (a1 - a0) / sw, sdy = (b1 - b0) / sh
-  for (let y = 0; y < dem.h; y++) for (let x = 0; x < dem.w; x++) {
-    let n = 0, s = 0
-    for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) {
-      const lon = dem.lonMin + (x + (k + 0.5) / 4) * dem.dLon, lat = dem.latMax - (y + (j + 0.5) / 4) * dem.dLat
-      const sx = Math.floor((lon - a0) / sdx), sy = Math.floor((b1 - lat) / sdy)
-      if (sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue
-      const v = sand.v[sy * sw + sx]
-      n++; s += v / 255
+// Fracción (0..1) de cada celda dentro de un campo de dunas: rasteriza los polígonos por líneas de barrido
+// sobre una submalla de SUB×SUB puntos por celda (regla par-impar) y promedia.
+const SUB = 4
+function rasterDunes(dem, geo) {
+  const out = new Float32Array(dem.n)
+  if (!geo) return out
+  const W = dem.w * SUB, H = dem.h * SUB
+  const sdLon = dem.dLon / SUB, sdLat = dem.dLat / SUB
+  const rings = geo.features.flatMap((f) => f.geometry.coordinates)
+  const xs = []
+  for (let sy = 0; sy < H; sy++) {
+    const lat = dem.latMax - (sy + 0.5) * sdLat
+    xs.length = 0
+    for (const ring of rings)
+      for (let k = 0, m = ring.length - 1; k < ring.length; m = k++) {
+        const [x1, y1] = ring[m], [x2, y2] = ring[k]
+        if ((y1 > lat) !== (y2 > lat)) xs.push(x1 + ((lat - y1) * (x2 - x1)) / (y2 - y1))
+      }
+    if (!xs.length) continue
+    xs.sort((a, b) => a - b)
+    const row = Math.floor(sy / SUB) * dem.w
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const s0 = Math.max(0, Math.ceil((xs[k] - dem.lonMin) / sdLon - 0.5))
+      const s1 = Math.min(W - 1, Math.floor((xs[k + 1] - dem.lonMin) / sdLon - 0.5))
+      for (let sx = s0; sx <= s1; sx++) out[row + Math.floor(sx / SUB)] += 1 / (SUB * SUB)
     }
-    if (n) out[y * dem.w + x] = s / n
   }
   return out
 }
 
 /** Construye la malla a partir de los datos ya cargados (sin red; se usa también en pruebas). */
-export function buildDem(meta, elev, rough, sand = null) {
+export function buildDem(meta, elev, rough, duneGeo = null) {
   const { w, h, cellM } = meta
   const [lonMin, latMin, lonMax, latMax] = meta.bbox
   const dLon = (lonMax - lonMin) / w
@@ -82,6 +91,6 @@ export function buildDem(meta, elev, rough, sand = null) {
   const out = { ...meta, elev, w, h, n: w * h, cellM, lonMin, latMin, lonMax, latMax, dLon, dLat, lonLat, cellOf, slope, rough, roughRisk }
   const { visible, baseCell } = viewshed(out)
   const commRisk = Float32Array.from(visible, (v, i) => (Number.isNaN(elev[i]) ? NaN : v ? 0 : 1)) // 1 = sin línea de vista
-  const sandRisk = sampleSand(out, sand) // fracción de arena oscura 0..1 (NaN fuera de la ortofoto)
+  const sandRisk = rasterDunes(out, duneGeo) // fracción de la celda dentro de un campo de dunas USGS (0..1)
   return { ...out, visible, commRisk, baseCell, sandRisk, ...simulate(out) }
 }

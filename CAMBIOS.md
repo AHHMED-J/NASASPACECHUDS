@@ -4,6 +4,32 @@ Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba
 
 ---
 
+## 2026-11-14 14:27 — La arena ahora viene del USGS (base de datos global de dunas)
+
+**Antes:** la arena era **estimada por nosotros** (zonas oscuras y lisas en la foto HiRISE). Solo cubría la zona de Curiosity.
+
+**Ahora:** usamos los **campos de dunas oficiales del USGS** (Mars Global Digital Dune Database, 2007). Cubren **todo el cráter**:
+- **1370-050**: incluye las dunas **Bagnold** (las que cruzó Curiosity), 425 km².
+- **1376-059**: arco de dunas al sur, 414 km².
+
+**Cómo se usa:** cada celda sabe qué parte cae dentro de un campo de dunas. Cruzar dunas **cuesta más**, pero **no está prohibido** (Curiosity las cruzó).
+
+**Ojo:** el USGS marca el **contorno** del campo, no cada duna. Dentro también hay roca.
+
+**Efecto en la comparación con Curiosity** (distancia media a su recorrido):
+
+| | Sin dunas | Con dunas USGS |
+|---|---|---|
+| Sol 1500, DEM 50 m | 0.15 km | 0.27 km |
+| Sol 5073, DEM 50 m | 1.05 km | 1.04 km |
+| Sol 5073, DEM 200 m | 1.09 km | **0.38 km** |
+
+A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Curiosity.
+
+**Quitado:** el mapa de arena estimado (`fetch-sand`, `gale50-sand.u8`).
+
+---
+
 ## 2026-11-14 14:20 — Prueba: ¿THEMIS de noche sirve para detectar arena? → No (sin cambios en la página)
 
 **Qué probamos:** el mosaico THEMIS-IR de noche (USGS, 100 m) en todo Gale, comparado con las dunas Bagnold que ya conocemos.

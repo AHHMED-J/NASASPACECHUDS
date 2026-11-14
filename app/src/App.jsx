@@ -24,7 +24,7 @@ const LAYERS = [
   ['rough', 'Rugosidad (rojo = más rugoso)'],
   ['comm', 'Comunicación (rojo = sin vista a la base)'],
   ['shade', 'Sombra (rojo = en sombra)'],
-  ['sand', 'Arena oscura estimada (rojo = arena)'],
+  ['sand', 'Campos de dunas USGS (rojo = dunas)'],
 ]
 
 const Select = (props) => <select {...props} className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm" />
@@ -42,7 +42,7 @@ export default function App() {
   const [bench, setBench] = useState(false) // comparar con el recorrido real de Curiosity
   const [curiosity, setCuriosity] = useState(null)
   const [benchRes, setBenchRes] = useState('detail') // DEM usado en la comparación
-  const [benchSand, setBenchSand] = useState(false) // en la comparación: además del relieve, evitar arena
+  const [benchSand, setBenchSand] = useState(false) // en la comparación: además del relieve, evitar dunas (USGS)
   const [solIdx, setSolIdx] = useState(null) // recorte del recorrido de Curiosity (índice en curiosity.sols; null = último)
   const w = useMemo(() => (bench ? { ...W_RELIEF, sand: benchSand ? 1 : 0 } : W), [bench, benchSand])
   const useDetail = bench && benchRes === 'detail'
@@ -266,7 +266,7 @@ export default function App() {
                   <option value="crater">200 m · cráter completo</option>
                 </Select>
               </label>
-              <label className="flex items-center gap-2"><input type="checkbox" className="accent-amber-400" checked={benchSand} onChange={(e) => setBenchSand(e.target.checked)} /> Evitar arena oscura (dunas)</label>
+              <label className="flex items-center gap-2"><input type="checkbox" className="accent-amber-400" checked={benchSand} onChange={(e) => setBenchSand(e.target.checked)} /> Evitar campos de dunas (USGS)</label>
               <button className="rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40" disabled={!curCut || !dem} onClick={useCuriosityEnds}>Usar su inicio y su posición en ese sol</button>
               {cmp && (
                 <dl className="grid grid-cols-2 gap-2 rounded-md bg-white/5 px-3 py-2">

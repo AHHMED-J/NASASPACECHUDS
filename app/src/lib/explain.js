@@ -9,7 +9,7 @@ export const REASONS = {
   height: { icon: '▲', label: 'Altura máxima', color: '#f97316' },
   nodata: { icon: '?', label: 'Sin datos', color: '#94a3b8' },
   effort: { icon: '↗', label: 'Subida', color: '#f59e0b' },
-  sand: { icon: '≈', label: 'Arena', color: '#d97706' },
+  sand: { icon: '≈', label: 'Dunas', color: '#d97706' },
   rad: { icon: '☢', label: 'Radiación', color: '#a855f7' },
   comm: { icon: '📡', label: 'Comunicación', color: '#3b82f6' },
   rough: { icon: '▦', label: 'Terreno rugoso', color: '#14b8a6' },
@@ -124,7 +124,7 @@ export function explainRoute(dem, route, w, filter) {
       const gain = (100 * (S.total - A.total)) / S.total
       const why = {
         effort: `ir derecho sube ${Math.round(S.climb - A.climb)} m más; el desvío es más llano`,
-        sand: `ir derecho cruza ${fmtM(S.sandM - A.sandM)} más de arena oscura (dunas)`,
+        sand: `ir derecho cruza ${fmtM(S.sandM - A.sandM)} más de campo de dunas (USGS)`,
         rad: 'ir derecho pasa por terreno más alto, con más radiación',
         comm: `ir derecho pierde la línea de vista con la base durante ${fmtM(S.noCommM - A.noCommM)} más`,
         rough: 'ir derecho cruza terreno más rugoso',
