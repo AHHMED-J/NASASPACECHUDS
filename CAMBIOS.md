@@ -4,6 +4,23 @@ Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba
 
 ---
 
+## 2026-11-14 14:20 — Prueba: ¿THEMIS de noche sirve para detectar arena? → No (sin cambios en la página)
+
+**Qué probamos:** el mosaico THEMIS-IR de noche (USGS, 100 m) en todo Gale, comparado con las dunas Bagnold que ya conocemos.
+
+**Idea:** de noche la arena suelta se enfría más rápido que la roca → debería verse más **oscura**.
+
+**Resultado:** pasa lo **contrario**. Las dunas Bagnold se ven **más tibias (claras)** que el terreno de alrededor:
+- En dunas: valor medio **177** (escala 0–255).
+- Fuera de dunas: valor medio **148**.
+- Los rangos se mezclan mucho (dunas 122–240, resto 103–184).
+
+**Por qué:** la arena de Bagnold es **gruesa y sin polvo**, y guarda bastante calor. El llano de alrededor está cubierto de **polvo fino**, que se enfría más. Además, USGS aclara que este mosaico es **solo visual** (valores estirados y mezclados), no temperatura real.
+
+**Conclusión:** con THEMIS de noche no se puede decir "frío = arena". No lo agregamos.
+
+---
+
 ## 2026-11-14 14:12 — ¿Por qué la ruta ahora se va por el otro lado?
 
 **Qué se ve:** en la comparación con Curiosity, nuestra ruta (cian) ahora se va por el **lado este** de la línea recta, y Curiosity (rosa) por el **oeste**. Antes nuestra ruta también se iba por el oeste, cerca de Curiosity.
