@@ -1,65 +1,72 @@
-// RADIACIÓN: MODELO SIMPLIFICADO calculado desde el DEM real (no es una medición ni un mapa oficial).
-// TEMPERATURA: SIMULADA (valores inventados con ideas físicas).
+// RADIACIÓN: modelo anclado en datos publicados de MSL/RAD (ver README). No es un mapa oficial.
+// TEMPERATURA: SIMULADA (valores inventados).
+//
+// Fuente de los números de radiación:
+//   Guo et al. (2018), "Dependence of the Martian radiation environment on atmospheric
+//   depth: modelling and measurement", JGR. https://arxiv.org/abs/1712.06987
+//   - Dosis medida por RAD en Gale (detector de plástico): ~220 uGy/día (rango 190-260).
+//   - Factor de calidad medio <Q> = 3.05 ± 0.3 (Hassler et al. 2014)  ->  ~0.67 mSv/día (dosis equivalente).
+//   - Gale: presión 700-950 Pa (columna 18.9-25.7 g/cm²); 840 Pa = 22.6 g/cm².
+//   - HZETRN2015, Φ=500 MV: entre 700 y 950 Pa la dosis equivalente cambia ~126 uSv/día
+//     (~19% del promedio)  ->  pendiente dosis-presión.
+//   - Medido: la anticorrelación dosis-presión se debilita con la actividad solar:
+//       -kappa = 0.28 - 2.9e-4·Φ  [uGy/día/Pa],  y se anula hacia Φ ≈ 900-1000 MV.
+//
+// SUPUESTOS NUESTROS (no del paper):
+//   - Presión por altura con atmósfera isoterma: H = R·T/g con T = 210 K (supuesto).
+//   - Extrapolación LINEAL dosis-presión fuera de 700-950 Pa (Gale está a ~-4.4 km, así que
+//     las zonas altas del recorte, hasta ~+1 km, quedan fuera de lo medido). El paper deja
+//     abierto si la relación lineal se extrapola.
+//   - Sin efecto del relieve local ni albedo: a ~90° del cenit hay ~400 g/cm² de atmósfera,
+//     así que bloquear el cielo bajo casi no cambia la dosis.
+const G = 3.71 // m/s²
+const R_GAS = 188.9 // J/(kg·K), CO2
+const T_ATM = 210 // K (supuesto)
+const H_SCALE = (R_GAS * T_ATM) / G // ~10.7 km
 
-// --- Radiación (rayos cósmicos galácticos, GCR) ---
-// 1) Atmósfera encima: presión barométrica P = P0·exp(-h/H), masa de columna X = P/g.
-//    Más altura -> menos atmósfera -> más dosis.
-// 2) Relieve: las paredes tapan parte del cielo. Fracción de cielo visible = 1 - media(sin(ángulo de horizonte)).
-// 3) Calibración: dosis en el aterrizaje de Curiosity (Bradbury, ~ -4500 m) = 0.64 mSv/día,
-//    valor publicado de RAD (GCR, dosis equivalente). Verificar contra la publicación antes de citarlo.
-// SUPUESTOS (inventados/simplificados): la curva dosis-vs-columna y su escala X0.
-const P0 = 610 // Pa, presión de referencia en el datum de Marte
-const H = 11100 // m, altura de escala atmosférica
-const G = 3.71 // m/s², gravedad en Marte
-const X0 = 40 // g/cm², escala de la curva de atenuación (supuesto)
-const RAD_CAL = { elev: -4500, mSvDay: 0.64 }
-const column = (h) => ((P0 * Math.exp(-h / H)) / G) / 10 // g/cm²  (1 kg/m² = 0.1 g/cm²)
-const atmFactor = (h) => 0.5 + 0.5 * Math.exp(-column(h) / X0)
+const REF = {
+  elev: -4400, // m, altitud MOLA de Curiosity (~-4.4 km)
+  pressure: 840, // Pa, presión de ejemplo en Gale (Guo 2018)
+  doseEq: 0.67, // mSv/día = 220 uGy/día × <Q> 3.05
+}
+const SLOPE_PHI500 = 0.126 / 250 // mSv/día por Pa, de HZETRN2015 a Φ=500 MV (126 uSv/día en 250 Pa)
+export const RAD_REF_TEXT = '≈0.67 mSv/día (220 µGy/día × Q≈3.05)'
 
-function skyVisible(dem) {
-  const { size, elev, dLat, dLon, lonLat, mPerDeg } = dem
-  const AZ = 16, R = 40 // direcciones y alcance en celdas (~30 km)
-  const out = new Float32Array(size * size)
-  const dirs = Array.from({ length: AZ }, (_, k) => [Math.cos((2 * Math.PI * k) / AZ), Math.sin((2 * Math.PI * k) / AZ)])
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const z0 = elev[y * size + x]
-      const lat = lonLat(x, y)[1]
-      const kx = dLon * mPerDeg * Math.cos((lat * Math.PI) / 180), ky = dLat * mPerDeg
-      let sum = 0
-      for (const [dx, dy] of dirs) {
-        let hmax = 0
-        for (let r = 1; r <= R; r++) {
-          const xx = Math.round(x + dx * r), yy = Math.round(y + dy * r)
-          if (xx < 0 || yy < 0 || xx >= size || yy >= size) break
-          const dist = Math.hypot(dx * r * kx, dy * r * ky)
-          const a = Math.atan((elev[yy * size + xx] - z0) / dist)
-          if (a > hmax) hmax = a
-        }
-        sum += Math.sin(hmax)
-      }
-      out[y * size + x] = 1 - sum / AZ
-    }
-  return out
+export const SOLAR = {
+  min: { label: 'Mínimo solar (Φ≈200 MV)', phi: 200 },
+  mid: { label: 'Medio (Φ≈500 MV)', phi: 500 },
+  max: { label: 'Máximo (Φ≈900 MV)', phi: 900 },
+}
+
+const pressureAt = (h) => REF.pressure * Math.exp(-(h - REF.elev) / H_SCALE)
+// el efecto de blindaje crece con poca actividad solar (ajuste lineal medido, ver arriba)
+const solarScale = (phi) => Math.max(0, (0.28 - 2.9e-4 * phi) / (0.28 - 2.9e-4 * 500))
+
+// Riesgo 0..1 en escala FÍSICA FIJA (no relativa a la zona): 0.60 mSv/día -> 0, 0.90 -> 1.
+const RISK_LO = 0.6, RISK_HI = 0.9
+
+export function radiationFor(dem, phi = 500) {
+  const { size, elev } = dem
+  const s = SLOPE_PHI500 * solarScale(phi)
+  const rad = new Float32Array(size * size) // mSv/día (modelo)
+  const radRisk = new Float32Array(size * size)
+  for (let i = 0; i < size * size; i++) {
+    rad[i] = REF.doseEq + s * (REF.pressure - pressureAt(elev[i]))
+    radRisk[i] = Math.min(1, Math.max(0, (rad[i] - RISK_LO) / (RISK_HI - RISK_LO)))
+  }
+  return { rad, radRisk }
 }
 
 export function simulate(dem) {
   const { size, elev, elevMin, elevMax } = dem
-  const sky = skyVisible(dem)
-  const k = RAD_CAL.mSvDay / atmFactor(RAD_CAL.elev)
-  const rad = new Float32Array(size * size) // mSv/día (modelo)
   const temp = new Float32Array(size * size) // °C (simulada)
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const i = y * size + x
-      rad[i] = k * atmFactor(elev[i]) * sky[i]
       const n = (elev[i] - elevMin) / (elevMax - elevMin)
       temp[i] = -45 - 15 * n + 12 * Math.sin(x / 9) * Math.cos(y / 11)
     }
-  const norm = (a, invert = false) => {
-    const lo = Math.min(...a), hi = Math.max(...a)
-    return Float32Array.from(a, (v) => (invert ? 1 - (v - lo) / (hi - lo) : (v - lo) / (hi - lo)))
-  }
-  // riesgo 0..1 RELATIVO dentro de la zona (más radiación = peor; más frío = peor)
-  return { rad, temp, radRisk: norm(rad), tempRisk: norm(temp, true) }
+  const lo = Math.min(...temp), hi = Math.max(...temp)
+  const tempRisk = Float32Array.from(temp, (v) => 1 - (v - lo) / (hi - lo)) // más frío = peor
+  return { temp, tempRisk, ...radiationFor(dem, 500) }
 }

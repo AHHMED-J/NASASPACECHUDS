@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
 import { loadDem } from './lib/dem'
+import { radiationFor, SOLAR, RAD_REF_TEXT } from './lib/sim'
 import { findRoute, isBlocked } from './lib/route'
 
 export default function App() {
-  const [dem, setDem] = useState(null)
+  const [baseDem, setDem] = useState(null)
+  const [solar, setSolar] = useState('mid')
   const [error, setError] = useState(null)
   const [maxElev, setMaxElev] = useState(-500)
   const [maxSlope, setMaxSlope] = useState(20)
@@ -16,6 +18,8 @@ export default function App() {
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
 
+  // misma malla, pero la radiación depende de la actividad solar elegida
+  const dem = useMemo(() => (baseDem ? { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi) } : null), [baseDem, solar])
   const filter = useMemo(() => ({ maxElev, maxSlope }), [maxElev, maxSlope])
   const route = useMemo(() => (dem && start && end ? findRoute(dem, start, end, filter, w) : null), [dem, start, end, filter, w])
   const noRoute = start && end && !route
@@ -70,6 +74,13 @@ export default function App() {
             </label>
           ))}
           <label className="block text-sm">
+            Actividad solar:{' '}
+            <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={solar} onChange={(e) => setSolar(e.target.value)}>
+              {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </label>
+          <p className="text-[11px] leading-snug text-slate-500">Medición RAD en Gale (referencia): {RAD_REF_TEXT}. El modelo está anclado a ese valor a ~-4.4 km; hacia arriba es extrapolación.</p>
+          <label className="block text-sm">
             Capa en mapa:{' '}
             <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={layer} onChange={(e) => setLayer(e.target.value)}>
               <option value="none">Ninguna</option>
@@ -102,7 +113,7 @@ export default function App() {
         </section>
 
         <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          *Temperatura simulada. Radiación: modelo simplificado calibrado con RAD (no es medición). Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
+          *Temperatura simulada. Radiación: modelo con datos de MSL/RAD y HZETRN (Guo et al. 2018), no es mapa oficial. Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
         </p>
       </aside>
 

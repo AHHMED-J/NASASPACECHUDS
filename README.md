@@ -23,6 +23,11 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
 - Stack: React + Vite + Tailwind + OpenLayers + proj4 + Chart.js.
 - Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
 - Elevación y pendiente: **datos reales**. DEM global MOLA/HRSC 200 m de USGS (metros), recortado a Gale con `npm run fetch-dem` (peticiones parciales, no baja los ~11 GB). Resultado en `app/public/data/gale-dem.json`. Licencia: MOLA (CC0) + HRSC (CC BY-SA 3.0 IGO); citar autores.
-- **Radiación: modelo simplificado** (`app/src/lib/sim.js`) calculado desde el DEM real: presión atmosférica por altura + fracción de cielo visible (horizonte), calibrado con el valor publicado de RAD (~0.64 mSv/día en Bradbury; verificar). No es medición ni mapa oficial; la curva dosis-vs-atmósfera es un supuesto.
+- **Radiación: modelo anclado en datos de la NASA** (`app/src/lib/sim.js`). Fuente: Guo et al. 2018, JGR, https://arxiv.org/abs/1712.06987 (MSL/RAD + HZETRN2015).
+  - Referencia medida en Gale: ~220 µGy/día × Q≈3.05 → **~0.67 mSv/día** (a ~-4.4 km, 840 Pa).
+  - Pendiente dosis-presión: 126 µSv/día cada 250 Pa (HZETRN2015, Φ=500 MV); se debilita con la actividad solar y se anula hacia Φ≈900-1000 MV (selector "Actividad solar").
+  - La presión por altura usa una atmósfera isoterma (T=210 K, **supuesto nuestro**).
+  - **Límite importante:** Curiosity está siempre a ~-4.4 km, así que lo medido cubre solo 700-950 Pa. Las zonas altas del recorte (hasta ~+1 km) son **extrapolación lineal**. No se modela relieve local ni albedo.
+  - El modelo coincide con RAD en el punto de anclaje **por construcción**: es referencia, no validación independiente.
 - **Temperatura: simulada** (valores inventados). Siguiente paso: Mars Climate Database / REMS.
 - A* solo lee `radRisk` y `tempRisk` (riesgo relativo 0-1 dentro de la zona), así que sustituir cualquiera de las dos es cambiar una función en `sim.js`.
