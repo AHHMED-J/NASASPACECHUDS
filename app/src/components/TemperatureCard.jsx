@@ -4,7 +4,7 @@ import { kToC, SEASONS } from '../lib/temperature'
 
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend)
 
-export default function TemperatureCard({ temp, ls, setLs, hour, setHour }) {
+export default function TemperatureCard({ temp, ls, hour, setHour }) {
   if (!temp) return <p className="text-xs text-slate-500">Cargando temperatura…</p>
   const row = temp.table[ls]
   const now = row[hour]
@@ -14,17 +14,11 @@ export default function TemperatureCard({ temp, ls, setLs, hour, setHour }) {
     data: hours.map((h) => +kToC(row[h][key]).toFixed(1)),
     borderColor: color, pointRadius: hours.map((h) => (h === hour ? 5 : 0)), pointBackgroundColor: color, tension: 0.3,
   })
-  const sel = 'mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm'
   return (
     <div className="space-y-4 text-sm">
       <label className="block">
         <div className="flex items-baseline justify-between"><span className="text-slate-400">Hora local</span><b className="text-base text-cyan-300">{String(hour).padStart(2, '0')}:00</b></div>
         <input type="range" className="mt-1 w-full accent-cyan-400" min={0} max={22} step={2} value={hour} onChange={(e) => setHour(+e.target.value)} />
-      </label>
-      <label className="block"><span className="text-slate-400">Estación</span>
-        <select className={sel} value={ls} onChange={(e) => setLs(+e.target.value)}>
-          {temp.ls.map((v) => <option key={v} value={v}>{SEASONS[v]}</option>)}
-        </select>
       </label>
       <div className="flex justify-between rounded-md bg-white/5 px-3 py-2">
         <div><div className="text-xs text-slate-400">Superficie</div><div className="text-lg text-cyan-300">{kToC(now.surf).toFixed(0)} °C</div></div>

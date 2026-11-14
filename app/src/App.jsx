@@ -5,7 +5,7 @@ import TemperatureCard from './components/TemperatureCard'
 import DataPanel from './components/DataPanel'
 import { loadDem } from './lib/dem'
 import { radiationFor, SOLAR } from './lib/radiation'
-import { loadTemp } from './lib/temperature'
+import { loadTemp, SEASONS } from './lib/temperature'
 import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
@@ -155,12 +155,7 @@ export default function App() {
         <section>
           <Title>Escenario</Title>
           <div className="space-y-4">
-            <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
-            <label className="block text-sm"><span className="text-slate-400">Actividad solar</span>
-              <Select value={solar} onChange={(e) => setSolar(e.target.value)}>
-                {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </Select>
-            </label>
+            <TemperatureCard temp={temp} ls={ls} hour={hour} setHour={setHour} />
           </div>
         </section>
 
@@ -201,6 +196,21 @@ export default function App() {
               </Select>
             </label>
             <p className="text-[11px] text-slate-500"><span className="text-red-300/80">■</span> bloqueado (muy alto o &gt;{CONST.MAX_SLOPE_DEG}°) · <span className="text-slate-400">■</span> sin dato · <span className="text-sky-300">▲</span> base</p>
+          </div>
+        </details>
+        <details className="shrink-0 text-sm">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">Opciones</summary>
+          <div className="mt-3 space-y-3">
+            <label className="block"><span className="text-slate-400">Estación</span>
+              <Select value={ls} onChange={(e) => setLs(+e.target.value)}>
+                {(temp?.ls ?? [ls]).map((v) => <option key={v} value={v}>{SEASONS[v]}</option>)}
+              </Select>
+            </label>
+            <label className="block"><span className="text-slate-400">Actividad solar</span>
+              <Select value={solar} onChange={(e) => setSolar(e.target.value)}>
+                {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </Select>
+            </label>
           </div>
         </details>
       </aside>
