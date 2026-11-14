@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
 import { loadDem } from './lib/dem'
@@ -39,10 +39,29 @@ export default function App() {
   }, [baseDem, solar, temp, ls, hour])
   const maxElev = maxElevSel ?? (baseDem ? Math.round((baseDem.elevMin + 0.75 * (baseDem.elevMax - baseDem.elevMin)) / 50) * 50 : 0)
   const filter = useMemo(() => ({ maxElev, maxSlope }), [maxElev, maxSlope])
-  // el cálculo A* puede tardar ~0.1-0.7 s en rutas largas: se aplaza para que el arrastre siga fluido
-  const dEnd = useDeferredValue(end)
-  const route = useMemo(() => (dem && start && dEnd ? findRoute(dem, start, dEnd, filter, w) : null), [dem, start, dEnd, filter, w])
-  const noRoute = start && end && end === dEnd && !route
+  // Un solo cálculo A* a la vez y siempre con el último destino: si llegan más movimientos del mouse
+  // mientras se calcula, no se acumulan (se recalcula una vez al terminar con los datos más recientes).
+  const [route, setRoute] = useState(null)
+  const [computing, setComputing] = useState(false)
+  const job = useRef({ busy: false, again: false, args: null })
+  useEffect(() => {
+    const j = job.current
+    if (!dem || !start || !end) { setRoute(null); return }
+    j.args = { dem, start, end, filter, w }
+    if (j.busy) { j.again = true; return }
+    const run = () => {
+      j.busy = true
+      setComputing(true)
+      setTimeout(() => {
+        const a = j.args
+        setRoute(findRoute(a.dem, a.start, a.end, a.filter, a.w))
+        j.busy = false
+        if (j.again) { j.again = false; run() } else setComputing(false)
+      }, 0)
+    }
+    run()
+  }, [dem, start, end, filter, w])
+  const noRoute = start && end && !computing && !route
 
   // arrastrar: 'down' fija el inicio, 'move' actualiza el destino (la ruta A* se recalcula en vivo)
   const onPick = (phase, [lon, lat]) => {
