@@ -1,50 +1,44 @@
-// Descarga un recorte del MOLA (USGS WMS) alrededor del cráter Gale y lo guarda como JSON.
+// Recorta Gale del DEM global MOLA/HRSC (USGS, 200 m/px, enteros de 16 bits en METROS)
+// usando peticiones parciales (range requests): no descarga los ~11 GB del archivo.
 // Uso: npm run fetch-dem
-//
-// OJO: el WMS devuelve grises de 8 bits normalizados POR PETICIÓN (no metros absolutos).
-// Para el demo reescalamos 0-255 al rango aproximado de Gale (ELEV_MIN..ELEV_MAX).
-// Para valores reales: baja el DEM (GeoTIFF) desde Trek y reemplaza este script.
+// Fuente: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
+// Licencia: MOLA (CC0) + HRSC (CC BY-SA 3.0 IGO). Citar a los autores.
+import { fromUrl } from 'geotiff'
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { PNG } from 'pngjs'
 
+const URL_DEM = 'https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif'
 const BBOX = [136.5, -6.5, 139.0, -4.0] // lonMin, latMin, lonMax, latMax
-const SIZE = 160
-const ELEV_MIN = -4500 // m, aprox. suelo de Gale
-const ELEV_MAX = 500 // m, aprox. punto más alto del recorte
+const SIZE = 200
 
-const url =
-  'https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl.map' +
-  `&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MOLA_bw&STYLES=&SRS=EPSG:4326` +
-  `&BBOX=${BBOX.join(',')}&WIDTH=${SIZE}&HEIGHT=${SIZE}&FORMAT=image/png`
+const tiff = await fromUrl(URL_DEM)
+const img = await tiff.getImage()
+const [west, , , north] = img.getBoundingBox()
+const [resX, resY] = img.getResolution() // resY es negativo
+const nodata = img.getGDALNoData()
 
-const res = await fetch(url, { signal: AbortSignal.timeout(60000) })
-if (!res.ok || !res.headers.get('content-type')?.includes('png')) {
-  throw new Error(`WMS error ${res.status}: ${(await res.text()).slice(0, 300)}`)
-}
-const png = PNG.sync.read(Buffer.from(await res.arrayBuffer()))
-let g = Array.from({ length: SIZE * SIZE }, (_, i) => png.data[i * 4])
+const x0 = Math.floor((BBOX[0] - west) / resX)
+const x1 = Math.ceil((BBOX[2] - west) / resX)
+const y0 = Math.floor((north - BBOX[3]) / -resY)
+const y1 = Math.ceil((north - BBOX[1]) / -resY)
+console.log(`ventana nativa ${x1 - x0}x${y1 - y0} px -> remuestreo a ${SIZE}x${SIZE}`)
 
-// Suavizado simple (caja 3x3, 2 pasadas) para quitar el efecto "terraza" del 8-bit
-for (let pass = 0; pass < 2; pass++) {
-  const out = g.slice()
-  for (let y = 0; y < SIZE; y++)
-    for (let x = 0; x < SIZE; x++) {
-      let s = 0, n = 0
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const xx = x + dx, yy = y + dy
-          if (xx >= 0 && yy >= 0 && xx < SIZE && yy < SIZE) { s += g[yy * SIZE + xx]; n++ }
-        }
-      out[y * SIZE + x] = s / n
-    }
-  g = out
-}
-const lo = Math.min(...g), hi = Math.max(...g)
-const elev = g.map((v) => Math.round(ELEV_MIN + ((v - lo) / (hi - lo)) * (ELEV_MAX - ELEV_MIN)))
+const [band] = await tiff.readRasters({
+  window: [x0, y0, x1, y1],
+  width: SIZE,
+  height: SIZE,
+  resampleMethod: 'bilinear',
+  interleave: false,
+})
+const elev = Array.from(band, (v) => Math.round(v))
+if (elev.some((v) => v === nodata || !Number.isFinite(v))) throw new Error('Hay celdas sin dato (nodata) en el recorte')
 
+const elevMin = Math.min(...elev), elevMax = Math.max(...elev)
 mkdirSync(new URL('../public/data/', import.meta.url), { recursive: true })
 writeFileSync(
   new URL('../public/data/gale-dem.json', import.meta.url),
-  JSON.stringify({ bbox: BBOX, size: SIZE, elevMin: ELEV_MIN, elevMax: ELEV_MAX, elev }),
+  JSON.stringify({
+    bbox: BBOX, size: SIZE, elevMin, elevMax, elev,
+    source: 'USGS MOLA/HRSC blended DEM 200 m (v2), metros sobre el datum de Marte',
+  }),
 )
-console.log('OK gale-dem.json', SIZE + 'x' + SIZE)
+console.log(`OK gale-dem.json ${SIZE}x${SIZE}  elevación real: ${elevMin} .. ${elevMax} m`)

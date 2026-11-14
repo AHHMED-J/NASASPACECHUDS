@@ -22,5 +22,5 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
 
 - Stack: React + Vite + Tailwind + OpenLayers + proj4 + Chart.js.
 - Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
-- Datos: `app/public/data/gale-dem.json` (se regenera con `npm run fetch-dem`).
-- **Limitación:** el WMS de USGS normaliza los grises por petición, así que la elevación está *reescalada* al rango aproximado de Gale (-4500 a 500 m), no calibrada. Para metros reales, baja el DEM GeoTIFF desde Trek y reemplaza `app/scripts/fetch-dem.mjs`.
+- Elevación y pendiente: **datos reales**. DEM global MOLA/HRSC 200 m de USGS (metros), recortado a Gale con `npm run fetch-dem` (peticiones parciales, no baja los ~11 GB). Resultado en `app/public/data/gale-dem.json`. Licencia: MOLA (CC0) + HRSC (CC BY-SA 3.0 IGO); citar autores.
+- **Radiación y temperatura: simuladas** (`app/src/lib/sim.js`). Es el único archivo a sustituir por datos o modelos reales; A* solo lee `radRisk` y `tempRisk`.

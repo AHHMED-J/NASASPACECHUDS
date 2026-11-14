@@ -102,7 +102,7 @@ export default function App() {
         </section>
 
         <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          *Simulado. Mapa base: NASA Trek (MOLA). Elevación aproximada: recorte MOLA de USGS reescalado al rango de Gale; no son metros calibrados.
+          *Simulado (radiación y temperatura). Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
         </p>
       </aside>
 
