@@ -1,5 +1,4 @@
 // RADIACIÓN: modelo anclado en datos publicados de MSL/RAD (ver README). No es un mapa oficial.
-// TEMPERATURA: SIMULADA (valores inventados).
 //
 // Fuente de los números de radiación:
 //   Guo et al. (2018), "Dependence of the Martian radiation environment on atmospheric
@@ -58,15 +57,5 @@ export function radiationFor(dem, phi = 500) {
 }
 
 export function simulate(dem) {
-  const { size, elev, elevMin, elevMax } = dem
-  const temp = new Float32Array(size * size) // °C (simulada)
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const i = y * size + x
-      const n = (elev[i] - elevMin) / (elevMax - elevMin)
-      temp[i] = -45 - 15 * n + 12 * Math.sin(x / 9) * Math.cos(y / 11)
-    }
-  const lo = Math.min(...temp), hi = Math.max(...temp)
-  const tempRisk = Float32Array.from(temp, (v) => 1 - (v - lo) / (hi - lo)) // más frío = peor
-  return { temp, tempRisk, ...radiationFor(dem, 500) }
+  return radiationFor(dem, 500)
 }

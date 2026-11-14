@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
 import { loadDem } from './lib/dem'
-import { radiationFor, SOLAR, RAD_REF_TEXT } from './lib/sim'
+import { radiationFor, SOLAR, RAD_REF_TEXT } from './lib/radiation'
+import { loadTemp } from './lib/temperature'
+import TemperatureCard from './components/TemperatureCard'
 import { findRoute, isBlocked } from './lib/route'
 
 export default function App() {
@@ -11,12 +13,16 @@ export default function App() {
   const [error, setError] = useState(null)
   const [maxElev, setMaxElev] = useState(-500)
   const [maxSlope, setMaxSlope] = useState(20)
-  const [w, setW] = useState({ slope: 1, rad: 2, temp: 1 })
+  const [w, setW] = useState({ slope: 1, rad: 2 })
+  const [temp, setTemp] = useState(null)
+  const [ls, setLs] = useState(90)
+  const [hour, setHour] = useState(12)
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
   const [end, setEnd] = useState(null)
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
+  useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
 
   // misma malla, pero la radiación depende de la actividad solar elegida
   const dem = useMemo(() => (baseDem ? { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi) } : null), [baseDem, solar])
@@ -39,7 +45,7 @@ export default function App() {
     const el = route.cells.map(([x, y]) => dem.elev[y * dem.size + x])
     const sl = route.cells.map(([x, y]) => dem.slope[y * dem.size + x])
     const avg = (a) => route.cells.reduce((s, [x, y]) => s + a[y * dem.size + x], 0) / route.cells.length
-    return { rad: avg(dem.rad), temp: avg(dem.temp), km: route.distanceKm, min: Math.min(...el), max: Math.max(...el), slope: Math.max(...sl) }
+    return { rad: avg(dem.rad), km: route.distanceKm, min: Math.min(...el), max: Math.max(...el), slope: Math.max(...sl) }
   }, [route, dem])
 
   return (
@@ -66,8 +72,8 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest text-slate-500">Prioridades de la ruta <span className="normal-case text-amber-400">(radiación: modelo · temperatura: simulada)</span></h2>
-          {[['slope', 'Evitar pendiente'], ['rad', 'Evitar radiación'], ['temp', 'Evitar frío']].map(([k, label]) => (
+          <h2 className="text-xs uppercase tracking-widest text-slate-500">Prioridades de la ruta <span className="normal-case text-amber-400">(radiación: modelo)</span></h2>
+          {[['slope', 'Evitar pendiente'], ['rad', 'Evitar radiación']].map(([k, label]) => (
             <label key={k} className="block text-sm">
               {label}: <b className="text-cyan-300">{w[k]}</b>
               <input type="range" className="w-full accent-cyan-400" min={0} max={5} step={0.5} value={w[k]} onChange={(e) => setW({ ...w, [k]: +e.target.value })} />
@@ -85,7 +91,6 @@ export default function App() {
             <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={layer} onChange={(e) => setLayer(e.target.value)}>
               <option value="none">Ninguna</option>
               <option value="rad">Radiación (modelo)</option>
-              <option value="temp">Temperatura (sim.)</option>
             </select>
           </label>
         </section>
@@ -99,7 +104,6 @@ export default function App() {
               <div><dt className="text-xs text-slate-500">Distancia</dt><dd className="text-lg text-cyan-300">{stats.km.toFixed(1)} km</dd></div>
               <div><dt className="text-xs text-slate-500">Pend. máx</dt><dd className="text-lg text-cyan-300">{stats.slope.toFixed(1)}°</dd></div>
               <div><dt className="text-xs text-slate-500">Radiación media (modelo)</dt><dd className="text-lg text-cyan-300">{stats.rad.toFixed(2)} mSv/d</dd></div>
-              <div><dt className="text-xs text-slate-500">Temp. media*</dt><dd className="text-lg text-cyan-300">{stats.temp.toFixed(0)} °C</dd></div>
               <div><dt className="text-xs text-slate-500">Elev. mín</dt><dd className="text-lg text-cyan-300">{stats.min} m</dd></div>
               <div><dt className="text-xs text-slate-500">Elev. máx</dt><dd className="text-lg text-cyan-300">{stats.max} m</dd></div>
             </dl>
@@ -108,12 +112,17 @@ export default function App() {
         </section>
 
         <section className="shrink-0">
+          <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Temperatura <span className="normal-case text-green-400">(MCD, datos del modelo climático)</span></h2>
+          <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
+        </section>
+
+        <section className="shrink-0">
           <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Perfil de elevación</h2>
           <div className="h-40 md:h-48">{dem && <ElevationProfile dem={dem} route={route} />}</div>
         </section>
 
         <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          *Temperatura simulada. Radiación: modelo con datos de MSL/RAD y HZETRN (Guo et al. 2018), no es mapa oficial. Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
+          Temperatura: Mars Climate Database (LMD). Radiación: modelo con datos de MSL/RAD y HZETRN (Guo et al. 2018), no es mapa oficial. Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
         </p>
       </aside>
 

@@ -36,7 +36,7 @@ const tileGrid = new TileGrid({
 
 function heatUrl(dem, layer) {
   const { size } = dem
-  const risk = layer === 'rad' ? dem.radRisk : dem.tempRisk
+  const risk = dem.radRisk
   const c = document.createElement('canvas')
   c.width = c.height = size
   const ctx = c.getContext('2d')

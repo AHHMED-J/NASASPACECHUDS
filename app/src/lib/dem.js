@@ -1,7 +1,7 @@
 // Carga del DEM recortado (Gale) y utilidades de celdas / pendiente.
 const M_PER_DEG = (2 * Math.PI * 3396190) / 360 // metros por grado en Marte (ecuador)
 
-import { simulate } from './sim'
+import { simulate } from './radiation'
 
 export async function loadDem() {
   const res = await fetch(`${import.meta.env.BASE_URL}data/gale-dem.json`)
