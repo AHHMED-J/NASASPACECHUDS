@@ -10,10 +10,13 @@ import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
+import { loadCuriosity, compareRoutes, lengthKm } from './lib/curiosity'
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
 // 'Sol' queda en 0: no aporta seguridad (no modelamos calor/energía) y la sombra sigue disponible como capa.
 const W = { effort: 1, rad: 2, rough: 1, comm: 1, shade: 0 }
+// Modo comparación con Curiosity: solo relieve (esfuerzo por subidas/bajadas + pendiente lateral, y el bloqueo por pendiente > 20°).
+const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, shade: 0 }
 const LAYERS = [
   ['none', 'Ninguna'],
   ['rad', 'Radiación (rojo = más dosis)'],
@@ -33,7 +36,9 @@ export default function App() {
   const [ls, setLs] = useState(90)
   const [hour, setHour] = useState(12)
   const [maxElevSel, setMaxElevSel] = useState(null)
-  const w = W
+  const [bench, setBench] = useState(false) // comparar con el recorrido real de Curiosity
+  const [curiosity, setCuriosity] = useState(null)
+  const w = bench ? W_RELIEF : W
   const [basemap, setBasemap] = useState('relief')
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
@@ -42,6 +47,7 @@ export default function App() {
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
   useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
+  useEffect(() => { if (bench && !curiosity) loadCuriosity().then(setCuriosity).catch((e) => setError(e.message)) }, [bench, curiosity])
 
   // sombras: dependen de la estación y la hora
   const shade = useMemo(() => (baseDem ? shadeMap(baseDem, ls, hour) : null), [baseDem, ls, hour])
@@ -59,7 +65,8 @@ export default function App() {
   }, [baseDem, solar, temp, ls, hour, shade])
 
   const maxElev = maxElevSel ?? (baseDem ? Math.round((baseDem.elevMin + 0.75 * (baseDem.elevMax - baseDem.elevMin)) / 50) * 50 : 0)
-  const filter = useMemo(() => ({ maxElev, maxSlope: CONST.MAX_SLOPE_DEG }), [maxElev])
+  // en comparación no hay filtro de altura: solo cuenta el relieve
+  const filter = useMemo(() => ({ maxElev: bench ? Infinity : maxElev, maxSlope: CONST.MAX_SLOPE_DEG }), [maxElev, bench])
 
   // Un solo cálculo A* a la vez y siempre con el último destino (los movimientos intermedios no se acumulan).
   const [route, setRoute] = useState(null)
@@ -134,6 +141,17 @@ export default function App() {
     }
   }, [route, dem, temp, ls, hour])
 
+  const cmp = useMemo(() => {
+    if (!bench || !curiosity || !route || !dem) return null
+    const ours = route.cells.map(([x, y]) => dem.lonLat(x, y))
+    return { ...compareRoutes(ours, curiosity.coords), curKm: lengthKm(curiosity.coords) }
+  }, [bench, curiosity, route, dem])
+  const useCuriosityEnds = () => {
+    if (!dem || !curiosity) return
+    const a = curiosity.coords[0], b = curiosity.coords[curiosity.coords.length - 1]
+    setStart(dem.cellOf(a[0], a[1])); setEnd(dem.cellOf(b[0], b[1]))
+  }
+
   const warnings = []
   if (stats) {
     if (stats.maxExcKm > CONST.MAX_EXCURSION_KM) warnings.push(`Se aleja ${stats.maxExcKm.toFixed(1)} km de la base (planificación: ${CONST.MAX_EXCURSION_KM} km).`)
@@ -181,6 +199,30 @@ export default function App() {
           <div className="h-40">{dem && <ElevationProfile dem={dem} route={route} />}</div>
         </section>
 
+        <section>
+          <Title>Comparar con Curiosity</Title>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="accent-fuchsia-400" checked={bench} onChange={(e) => setBench(e.target.checked)} />
+            Mostrar recorrido real de Curiosity
+          </label>
+          {bench && (
+            <div className="mt-3 space-y-2 text-xs text-slate-400">
+              <p>En este modo nuestra ruta usa <b className="text-slate-200">solo el relieve</b> (subidas, pendiente lateral y el límite de {CONST.MAX_SLOPE_DEG}°). El recorrido de Curiosity solo se dibuja: no influye en nuestra ruta.</p>
+              {curiosity && <p><span className="text-fuchsia-300">━</span> Curiosity: {curiosity.distKm.toFixed(1)} km recorridos hasta el sol {curiosity.sol} (NASA/JPL).</p>}
+              <button className="rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-40" disabled={!curiosity || !dem} onClick={useCuriosityEnds}>Usar su inicio y su posición actual</button>
+              {cmp && (
+                <dl className="grid grid-cols-2 gap-2 rounded-md bg-white/5 px-3 py-2">
+                  <div><dt>Distancia media a Curiosity</dt><dd className="text-base text-cyan-300">{(cmp.meanM / 1000).toFixed(2)} km</dd></div>
+                  <div><dt>Distancia máxima</dt><dd className="text-base text-cyan-300">{(cmp.maxM / 1000).toFixed(2)} km</dd></div>
+                  <div><dt>Ruta a &lt; {cmp.tolM} m de Curiosity</dt><dd className="text-base text-cyan-300">{cmp.within.toFixed(0)}%</dd></div>
+                  <div><dt>Largo: nuestra / Curiosity</dt><dd className="text-base text-cyan-300">{route.distanceKm.toFixed(1)} / {curiosity.distKm.toFixed(1)} km</dd></div>
+                </dl>
+              )}
+              <p className="text-[11px] text-slate-500">Ojo: Curiosity no buscó el camino más corto; se detuvo y desvió por objetivos científicos, arena y ruedas. Es un benchmark aproximado, y nuestro DEM es de {CONST.CELL_M} m.</p>
+            </div>
+          )}
+        </section>
+
         <details className="shrink-0 text-sm">
           <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">Mapa</summary>
           <div className="mt-3 space-y-3">
@@ -226,7 +268,7 @@ export default function App() {
             ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-400">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
           </dl>
         )}
-        <MapView dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
+        <MapView curiosity={bench ? curiosity?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
       </main>
 
       {showData && (

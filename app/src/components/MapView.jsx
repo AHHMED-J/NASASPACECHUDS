@@ -115,7 +115,7 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick }) {
+export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick, curiosity }) {
   const el = useRef(null)
   const ref = useRef({})
   const pickRef = useRef(onPick)
@@ -187,7 +187,13 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     vp.addEventListener('pointerdown', down)
     vp.addEventListener('pointermove', move)
     vp.addEventListener('pointerup', up)
-    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, orthoLayer }
+    // recorrido real de Curiosity (referencia, independiente de nuestra ruta)
+    const curSrc = new VectorSource()
+    map.getLayers().insertAt(map.getLayers().getLength() - 1, new VectorLayer({ source: curSrc, style: [ // debajo de nuestra ruta
+      new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
+      new Style({ stroke: new Stroke({ color: '#e879f9', width: 3 }) }),
+    ] }))
+    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, orthoLayer, curSrc }
     return () => {
       vp.removeEventListener('pointerdown', down)
       vp.removeEventListener('pointermove', move)
@@ -258,6 +264,16 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     if (start) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...start)), kind: 'start' }))
     if (end) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...end)), kind: 'end' }))
   }, [dem, route, start, end])
+
+  useEffect(() => {
+    const src = ref.current?.curSrc
+    if (!src) return
+    src.clear()
+    if (!curiosity?.length) return
+    const line = new LineString(curiosity)
+    src.addFeature(new Feature({ geometry: line }))
+    ref.current.map.getView().fit(line.getExtent(), { padding: [120, 120, 120, 120], duration: 400 }) // acercar al recorrido
+  }, [curiosity])
 
   return <div ref={el} className="h-full w-full" />
 }

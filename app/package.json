@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "fetch-dem": "node scripts/fetch-dem.mjs",
     "fetch-dem-1m": "node scripts/fetch-dem-1m.mjs",
-    "fetch-mcd": "node scripts/fetch-mcd.mjs"
+    "fetch-mcd": "node scripts/fetch-mcd.mjs",
+    "fetch-curiosity": "node scripts/fetch-curiosity.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",
