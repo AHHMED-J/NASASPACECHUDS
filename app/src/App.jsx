@@ -11,13 +11,9 @@ import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
 
-const PREFS = [
-  ['effort', 'Menos esfuerzo', 'subidas y pendiente lateral'],
-  ['rad', 'Menos radiación', ''],
-  ['rough', 'Menos terreno rugoso', 'rocas y obstáculos'],
-  ['comm', 'Mantener comunicación', 'línea de vista con la base'],
-  ['shade', 'Preferir zonas con sol', ''],
-]
+// Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
+// 'Sol' queda en 0: no aporta seguridad (no modelamos calor/energía) y la sombra sigue disponible como capa.
+const W = { effort: 1, rad: 2, rough: 1, comm: 1, shade: 0 }
 const LAYERS = [
   ['none', 'Ninguna'],
   ['rad', 'Radiación (rojo = más dosis)'],
@@ -37,7 +33,7 @@ export default function App() {
   const [ls, setLs] = useState(90)
   const [hour, setHour] = useState(12)
   const [maxElevSel, setMaxElevSel] = useState(null)
-  const [w, setW] = useState({ effort: 1, rad: 2, rough: 1, comm: 1, shade: 1 })
+  const w = W
   const [basemap, setBasemap] = useState('ortho')
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
@@ -167,14 +163,7 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
-          <Title>Prioridades de la ruta</Title>
-          {PREFS.map(([k, label, hint]) => (
-            <label key={k} className="block text-sm">
-              {label}: <b className="text-cyan-300">{w[k]}</b>
-              {hint && <span className="ml-1 text-[11px] text-slate-500">({hint})</span>}
-              <input type="range" className="w-full accent-cyan-400" min={0} max={5} step={0.5} value={w[k]} onChange={(e) => setW({ ...w, [k]: +e.target.value })} />
-            </label>
-          ))}
+          <Title>Filtros de la ruta</Title>
           <label className="block text-sm">
             Altura máxima: <b className="text-cyan-300">{maxElev} m</b>
             <input type="range" className="w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
@@ -204,20 +193,6 @@ export default function App() {
           {noRoute && <p className="text-red-400">{blockedEnd ? 'El inicio o el destino cae en una zona bloqueada. Elige puntos fuera del rojo o sube la altura máxima.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
           {stats && (
             <>
-              <dl className="grid grid-cols-2 gap-x-2 gap-y-2">
-                {[
-                  ['Distancia', `${stats.km.toFixed(1)} km`],
-                  ['Tiempo a pie', `${stats.timeH.toFixed(1)} h`],
-                  ['Dosis de la salida', `${stats.doseMsv.toFixed(3)} mSv`],
-                  ['Radiación media', `${(stats.doseMsv / (stats.timeH / 24)).toFixed(2)} mSv/d`],
-                  ['Esfuerzo vs plano', `${stats.effortRel.toFixed(2)}×`],
-                  ['Pend. máx.', `${stats.maxSlope.toFixed(1)}°`],
-                  ['Al sol', `${stats.sunPct.toFixed(0)}%`],
-                  ['Con comunicación', `${stats.visPct.toFixed(0)}%`],
-                  ['Rugosidad media', Number.isNaN(stats.rough) ? '–' : `${stats.rough.toFixed(2)} m`],
-                  ['Elevación', `${stats.min} a ${stats.max} m`],
-                ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-500">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
-              </dl>
               {stats.tMin !== null && <p className="mt-2 text-[11px] text-slate-400">Superficie durante la salida: {(stats.tMin - 273.15).toFixed(0)} a {(stats.tMax - 273.15).toFixed(0)} °C (rango del traje, lunar: {CONST.SUIT_EXT_K[0] - 273}…{CONST.SUIT_EXT_K[1] - 273} °C).</p>}
               {warnings.map((m) => <p key={m} className="mt-1 text-[12px] text-amber-300">⚠ {m}</p>)}
             </>
@@ -237,6 +212,15 @@ export default function App() {
 
       <main className="relative min-h-0 flex-1">
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
+        {stats && (
+          <dl className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-x-4 rounded border border-cyan-900/60 bg-[#070c16]/90 px-3 py-2 backdrop-blur">
+            {[
+              ['Distancia', `${stats.km.toFixed(1)} km`],
+              ['Tiempo a pie', `${stats.timeH.toFixed(1)} h`],
+              ['Elevación', `${stats.min} a ${stats.max} m`],
+            ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-400">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
+          </dl>
+        )}
         <MapView dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
       </main>
 

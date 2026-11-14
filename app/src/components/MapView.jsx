@@ -17,7 +17,7 @@ import TileGrid from 'ol/tilegrid/TileGrid'
 import Feature from 'ol/Feature'
 import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point'
-import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape } from 'ol/style'
+import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape, Text } from 'ol/style'
 import { isBlocked } from '../lib/route'
 import 'ol/ol.css'
 
@@ -160,7 +160,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
             const k = f.get('kind')
             if (k === 'line') return new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
             if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
-            if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
+            if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
             return pt(k === 'start' ? '#22c55e' : '#f59e0b')
           },
         }),

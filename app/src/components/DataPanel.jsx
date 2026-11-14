@@ -37,9 +37,9 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Hora local" kind="real">{String(hour).padStart(2, '0')}:00. Cambia presión, temperatura y sombras.</Row>
           <Row title="Actividad solar" kind="modelo">{SOLAR[solar].label}. Cambia cuánto protege la atmósfera de la radiación.</Row>
           <Row title="Altura máxima" kind="info">{maxElev} m. Filtro de misión: bloquea todo lo más alto. No es un límite físico; la altura ya pesa vía la radiación.</Row>
-          <Row title="Prioridades (0 a 5)" kind="info">
-            esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · sol {w.shade}.
-            Son preferencias del usuario. Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación, ×{SCALE.shade} sombra) <b>no es una magnitud física</b>.
+          <Row title="Prioridades" kind="info">
+            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · sol {w.shade} (sin efecto en la ruta).
+            Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación) <b>no es una magnitud física</b>.
           </Row>
           <Row title="Inicio y destino" kind="info">Los puntos que arrastras en el mapa.</Row>
         </ul>

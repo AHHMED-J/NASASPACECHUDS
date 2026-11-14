@@ -40,9 +40,6 @@ export default function TemperatureCard({ temp, ls, setLs, hour, setHour }) {
           }}
         />
       </div>
-      <p className="text-[11px] leading-snug text-slate-500">
-        MCD v6 en el centro de la zona. En 150 km la MCD varía ~1 K (medido en 9 puntos), así que la temperatura es una condición de hora y estación, no un costo espacial de la ruta.
-      </p>
     </div>
   )
 }
