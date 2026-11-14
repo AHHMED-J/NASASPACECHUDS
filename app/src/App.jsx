@@ -34,7 +34,7 @@ export default function App() {
   const [hour, setHour] = useState(12)
   const [maxElevSel, setMaxElevSel] = useState(null)
   const w = W
-  const [basemap, setBasemap] = useState('ortho')
+  const [basemap, setBasemap] = useState('relief')
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
   const [end, setEnd] = useState(null)
@@ -191,7 +191,6 @@ export default function App() {
           <div className="mt-3 space-y-3">
             <label className="block"><span className="text-slate-400">Mapa base</span>
               <Select value={basemap} onChange={(e) => setBasemap(e.target.value)}>
-                <option value="ortho">Ortofoto HiRISE</option>
                 <option value="relief">Relieve del DEM</option>
                 <option value="trek">NASA Trek (MOLA)</option>
               </Select>
