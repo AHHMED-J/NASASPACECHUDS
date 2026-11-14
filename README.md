@@ -23,4 +23,6 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
 - Stack: React + Vite + Tailwind + OpenLayers + proj4 + Chart.js.
 - Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
 - Elevación y pendiente: **datos reales**. DEM global MOLA/HRSC 200 m de USGS (metros), recortado a Gale con `npm run fetch-dem` (peticiones parciales, no baja los ~11 GB). Resultado en `app/public/data/gale-dem.json`. Licencia: MOLA (CC0) + HRSC (CC BY-SA 3.0 IGO); citar autores.
-- **Radiación y temperatura: simuladas** (`app/src/lib/sim.js`). Es el único archivo a sustituir por datos o modelos reales; A* solo lee `radRisk` y `tempRisk`.
+- **Radiación: modelo simplificado** (`app/src/lib/sim.js`) calculado desde el DEM real: presión atmosférica por altura + fracción de cielo visible (horizonte), calibrado con el valor publicado de RAD (~0.64 mSv/día en Bradbury; verificar). No es medición ni mapa oficial; la curva dosis-vs-atmósfera es un supuesto.
+- **Temperatura: simulada** (valores inventados). Siguiente paso: Mars Climate Database / REMS.
+- A* solo lee `radRisk` y `tempRisk` (riesgo relativo 0-1 dentro de la zona), así que sustituir cualquiera de las dos es cambiar una función en `sim.js`.

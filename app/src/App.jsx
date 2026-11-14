@@ -62,7 +62,7 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest text-slate-500">Prioridades de la ruta <span className="normal-case text-amber-400">(radiación y temperatura simuladas)</span></h2>
+          <h2 className="text-xs uppercase tracking-widest text-slate-500">Prioridades de la ruta <span className="normal-case text-amber-400">(radiación: modelo · temperatura: simulada)</span></h2>
           {[['slope', 'Evitar pendiente'], ['rad', 'Evitar radiación'], ['temp', 'Evitar frío']].map(([k, label]) => (
             <label key={k} className="block text-sm">
               {label}: <b className="text-cyan-300">{w[k]}</b>
@@ -73,7 +73,7 @@ export default function App() {
             Capa en mapa:{' '}
             <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={layer} onChange={(e) => setLayer(e.target.value)}>
               <option value="none">Ninguna</option>
-              <option value="rad">Radiación (sim.)</option>
+              <option value="rad">Radiación (modelo)</option>
               <option value="temp">Temperatura (sim.)</option>
             </select>
           </label>
@@ -87,7 +87,7 @@ export default function App() {
             <dl className="grid grid-cols-2 gap-2">
               <div><dt className="text-xs text-slate-500">Distancia</dt><dd className="text-lg text-cyan-300">{stats.km.toFixed(1)} km</dd></div>
               <div><dt className="text-xs text-slate-500">Pend. máx</dt><dd className="text-lg text-cyan-300">{stats.slope.toFixed(1)}°</dd></div>
-              <div><dt className="text-xs text-slate-500">Radiación media*</dt><dd className="text-lg text-cyan-300">{stats.rad.toFixed(2)} mSv/d</dd></div>
+              <div><dt className="text-xs text-slate-500">Radiación media (modelo)</dt><dd className="text-lg text-cyan-300">{stats.rad.toFixed(2)} mSv/d</dd></div>
               <div><dt className="text-xs text-slate-500">Temp. media*</dt><dd className="text-lg text-cyan-300">{stats.temp.toFixed(0)} °C</dd></div>
               <div><dt className="text-xs text-slate-500">Elev. mín</dt><dd className="text-lg text-cyan-300">{stats.min} m</dd></div>
               <div><dt className="text-xs text-slate-500">Elev. máx</dt><dd className="text-lg text-cyan-300">{stats.max} m</dd></div>
@@ -102,7 +102,7 @@ export default function App() {
         </section>
 
         <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          *Simulado (radiación y temperatura). Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
+          *Temperatura simulada. Radiación: modelo simplificado calibrado con RAD (no es medición). Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
         </p>
       </aside>
 
