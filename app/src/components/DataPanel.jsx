@@ -57,11 +57,11 @@ export default function DataPanel({ onClose, state }) {
         <H>3 · Datos reales (mediciones)</H>
         <ul>
           <Row title="Elevación, pendiente y gradiente" kind="real">
-            DEM de USGS "MSL Gale Merged DEM 1 m" (HiRISE + CTX + HRSC), promediado a celdas de {CONST.CELL_M} m. Rango: {Math.round(state.elevMin)} a {Math.round(state.elevMax)} m.
+            DEM global de USGS "MOLA–HRSC Blended DEM 200 m" v2, ventana de todo el cráter Gale, celdas de {CONST.CELL_M} m. Rango: {Math.round(state.elevMin)} a {Math.round(state.elevMax)} m.
             La pendiente es regional (a {CONST.CELL_M} m), no la de la escala de un pie o una rueda.
           </Row>
           <Row title="Rugosidad" kind="real">
-            Desviación de la altura a 1 m (sin la tendencia lineal) en perfiles de cada celda de {CONST.CELL_M} m, del mismo DEM. Es un indicador de rocas y obstáculos, pero el DEM no resuelve rocas pequeñas.
+            Desviación de la altura respecto a un plano en ventanas de 3×3 celdas (~600 m) del mismo DEM. Es un indicador de relieve irregular, no de rocas: a {CONST.CELL_M} m no se resuelven rocas ni escalones pequeños.
             Se convierte a riesgo 0–1 de forma <b>relativa a la zona</b> (percentil 95 = 1); no hay un umbral físico publicado.
           </Row>
           <Row title="Presión y temperatura de superficie" kind="modelo">
@@ -88,7 +88,7 @@ export default function DataPanel({ onClose, state }) {
             Posición del Sol (geometría con la oblicuidad de Marte, latitud, estación y hora) y sombras del propio terreno desde el DEM. Es geometría, pero no calculamos cuánto enfría la sombra.
           </Row>
           <Row title="Comunicación" kind="modelo">
-            Línea de vista desde la base con antenas a {CONST.ANTENNA_H_M} m sobre el DEM. Aproximada: el DEM de {CONST.CELL_M} m no resuelve lomas pequeñas. No modela alcance de la radio.
+            Línea de vista desde la base con antenas a {CONST.ANTENNA_H_M} m sobre el DEM. Aproximada: el DEM de {CONST.CELL_M} m no resuelve lomas pequeñas. Incluye la curvatura de Marte. No modela alcance de la radio.
           </Row>
           <Row title="Esquinas" kind="info">Un paso diagonal no puede pasar entre dos celdas bloqueadas.</Row>
           <Row title="Tiempo y dosis de la salida" kind="modelo">

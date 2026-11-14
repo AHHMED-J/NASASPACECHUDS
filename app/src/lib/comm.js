@@ -1,6 +1,8 @@
 // Línea de vista desde la base (análisis de visibilidad por rayos sobre el DEM).
-// Aproximado: el DEM está promediado a 50 m, así que lomas pequeñas no se resuelven.
+// Aproximado: el DEM está de 200 m, así que lomas pequeñas no se resuelven.
 import { CONST } from './constants.js'
+
+const R_MARS = 3396190 // m; la superficie cae d²/2R por debajo de la tangente (a 20 km ≈ 59 m)
 
 /** Devuelve { visible: Uint8Array (1 = hay línea de vista), baseCell } */
 export function viewshed(dem) {
@@ -28,9 +30,10 @@ export function viewshed(dem) {
     for (let r = 1; ; r++) {
       const x = Math.round(bx + dx * r), y = Math.round(by + dy * r)
       if (x < 0 || y < 0 || x >= w || y >= h) break
-      const i = y * w + x, z = elev[i]
-      if (Number.isNaN(z)) continue
+      const i = y * w + x
+      if (Number.isNaN(elev[i])) continue
       const d = Math.hypot(x - bx, y - by) * cellM
+      const z = elev[i] - (d * d) / (2 * R_MARS) // altura efectiva con curvatura
       if ((z + CONST.ANTENNA_H_M - zObs) / d >= maxAngle) visible[i] = 1
       const ground = (z - zObs) / d
       if (ground > maxAngle) maxAngle = ground

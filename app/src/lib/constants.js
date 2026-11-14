@@ -11,7 +11,7 @@ export const CONST = {
   BASE: { name: 'Bradbury Landing (aterrizaje de Curiosity)', lat: -4.5895, lon: 137.4417 },
   ANTENNA_H_M: 2, // altura de antena (base y astronauta)
   MARS_OBLIQUITY_DEG: 25.19,
-  CELL_M: 50,
+  CELL_M: 200,
 }
 
 // Escalas de preferencia: convierten "peso 1" del slider en un sobrecosto. NO son magnitudes físicas.
@@ -45,5 +45,5 @@ export const FIXED = [
   { id: 'antenna', label: 'Altura de antena (base y astronauta)', value: `${CONST.ANTENNA_H_M} m`, kind: 'supuesto',
     source: 'Decisión nuestra.', url: null, caveat: 'No verificado contra ningún equipo real.' },
   { id: 'cell', label: 'Tamaño de celda del mapa', value: `${CONST.CELL_M} m`, kind: 'supuesto',
-    source: 'Compromiso entre detalle y velocidad de cálculo. Los datos originales son de 1 m.', url: null, caveat: 'La pendiente y la rugosidad se promedian a esta escala.' },
+    source: 'Resolución del DEM global HRSC+MOLA (USGS) usado para cubrir todo el cráter Gale.', url: 'https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m', caveat: 'La pendiente (y la rugosidad) se suavizan a esta escala: se subestiman pendientes abruptas.' },
 ]

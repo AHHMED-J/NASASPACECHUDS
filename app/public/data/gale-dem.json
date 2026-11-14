@@ -1,1 +1,1 @@
-{"w":659,"h":1148,"cellM":50,"bbox":[137.1241749414272,-5.097985950423841,137.6800613715021,-4.129613231568029],"elevMin":-4625,"elevMax":-328,"validFraction":0.8198066968746861,"source":"USGS Mars MSL Gale Merged DEM 1m v3 (HiRISE+CTX+HRSC, MOLA-tied), promediado a celdas de 50 m"}
+{"w":829,"h":830,"cellM":200,"bbox":[136.40143265169849,-6.80015251025965,139.19857882029987,-3.999632220827621],"elevMin":-4688,"elevMax":1464,"validFraction":1,"source":"USGS Mars MGS MOLA - MEX HRSC Blended DEM Global 200m v2, ventana del cráter Gale"}

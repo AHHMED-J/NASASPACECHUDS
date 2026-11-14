@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "fetch-dem": "node scripts/fetch-dem.mjs",
+    "fetch-dem-1m": "node scripts/fetch-dem-1m.mjs",
     "fetch-mcd": "node scripts/fetch-mcd.mjs"
   },
   "dependencies": {
