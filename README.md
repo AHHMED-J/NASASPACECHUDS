@@ -24,7 +24,7 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
 - Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
 - Elevación y pendiente: **datos reales a alta resolución**. DEM "Mars MSL Gale Merged DEM 1m" de USGS (HiRISE + CTX + HRSC, anclado a MOLA), zona de Curiosity (~137.1-137.7°E, -5.1 a -4.1°N, ~33×57 km). `npm run fetch-dem` lee el GeoTIFF remoto de 3.6 GB por filas (peticiones parciales, ~300 MB) y lo promedia a **celdas de 50 m** → `app/public/data/gale-dem.f32` (+ `.json`). Rango obtenido: -4625 a -328 m (USGS publica -4625.9 a -322.6). El 82% del rectángulo tiene dato; el resto se marca en gris y queda bloqueado. Fuente: https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m
   - Pendiente calculada sobre celdas de 50 m (antes 740 m). Sigue siendo regional, no la escala de un rover (metros).
-  - Mapa base: relieve sombreado generado del propio DEM, o NASA Trek (MOLA, 463 m; borroso a este zoom).
+  - Mapa base (selector): **ortofoto HiRISE** de Curiosity servida por NASA Trek (capa `curiosity_hirise_mosaic`, WMTS hasta nivel 16 ≈ 0.6 m/px, en escala de grises, cobertura 137.12-137.73°E / -4.93 a -4.25°N), relieve sombreado generado del DEM, o Trek MOLA (463 m, borroso a este zoom). La ortofoto es solo para mirar: A* no la usa.
 - **Radiación: modelo anclado en datos de la NASA** (`app/src/lib/radiation.js`). Fuente: Guo et al. 2018, JGR, https://arxiv.org/abs/1712.06987 (MSL/RAD + HZETRN2015).
   - Referencia medida en Gale: ~220 µGy/día × Q≈3.05 → **~0.67 mSv/día** (a ~-4.4 km, 840 Pa).
   - Pendiente dosis-presión: 126 µSv/día cada 250 Pa (HZETRN2015, Φ=500 MV); se debilita con la actividad solar y se anula hacia Φ≈900-1000 MV (selector "Actividad solar").

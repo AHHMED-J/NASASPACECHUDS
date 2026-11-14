@@ -12,7 +12,7 @@ export default function App() {
   const [solar, setSolar] = useState('mid')
   const [error, setError] = useState(null)
   const [maxElevSel, setMaxElevSel] = useState(null)
-  const [basemap, setBasemap] = useState('relief')
+  const [basemap, setBasemap] = useState('ortho')
   const [maxSlope, setMaxSlope] = useState(20)
   const [w, setW] = useState({ slope: 1, rad: 2 })
   const [temp, setTemp] = useState(null)
@@ -103,6 +103,7 @@ export default function App() {
           <label className="block text-sm">
             Mapa base:{' '}
             <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={basemap} onChange={(e) => setBasemap(e.target.value)}>
+              <option value="ortho">Ortofoto HiRISE (Trek)</option>
               <option value="relief">Relieve del DEM (50 m)</option>
               <option value="trek">NASA Trek (MOLA 463 m)</option>
             </select>

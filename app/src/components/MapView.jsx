@@ -28,6 +28,15 @@ const MARS = getProjection('EPSG:104905')
 MARS.setExtent([-180, -90, 180, 90])
 
 const TREK = 'https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0/default/default028mm'
+// Ortofoto HiRISE de Curiosity en Trek: mismo esquema de tiles, hasta el nivel 16 (~0.6 m/px)
+const HIRISE = 'https://trek.nasa.gov/tiles/Mars/EQ/curiosity_hirise_mosaic/1.0.0/default/default028mm'
+const HIRISE_EXTENT = [137.1224669, -4.9254743, 137.7298129, -4.2489588]
+const hiriseGrid = new TileGrid({
+  origin: [-180, 90],
+  resolutions: Array.from({ length: 17 }, (_, z) => 360 / 512 / 2 ** z),
+  tileSize: 256,
+})
+
 const tileGrid = new TileGrid({
   origin: [-180, 90],
   resolutions: Array.from({ length: 8 }, (_, z) => 360 / 512 / 2 ** z),
@@ -115,6 +124,17 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     const maskLayer = new ImageLayer({ opacity: 1 })
     const heatLayer = new ImageLayer({ opacity: 1 })
     const reliefLayer = new ImageLayer({ opacity: 1 })
+    const orthoLayer = new TileLayer({
+      extent: HIRISE_EXTENT, // no pide tiles fuera de la cobertura (dan 404)
+      source: new XYZ({
+        projection: MARS,
+        tileGrid: hiriseGrid,
+        wrapX: false,
+        crossOrigin: 'anonymous',
+        tileUrlFunction: ([z, x, y]) => `${HIRISE}/${z}/${y}/${x}.png`,
+        attributions: 'NASA Trek · HiRISE/MSL ortofoto (USGS, Calef & Parker)',
+      }),
+    })
     const map = new Map({
       target: el.current,
       layers: [
@@ -129,6 +149,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
           }),
         }),
         reliefLayer,
+        orthoLayer,
         heatLayer,
         maskLayer,
         new VectorLayer({
@@ -141,7 +162,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
           },
         }),
       ],
-      view: new View({ projection: MARS, center: [137.4, -4.6], resolution: 0.0012 }),
+      view: new View({ projection: MARS, center: [137.4, -4.6], resolution: 0.0012, minResolution: 360 / 512 / 2 ** 16 }),
       // el arrastre normal traza la ruta; Shift+arrastrar mueve el mapa
       interactions: defaultInteractions({ dragPan: false, shiftDragZoom: false }).extend([new DragPan({ condition: shiftKeyOnly })]),
     })
@@ -163,7 +184,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     vp.addEventListener('pointerdown', down)
     vp.addEventListener('pointermove', move)
     vp.addEventListener('pointerup', up)
-    ref.current = { map, route, maskLayer, heatLayer, reliefLayer }
+    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, orthoLayer }
     return () => {
       vp.removeEventListener('pointerdown', down)
       vp.removeEventListener('pointermove', move)
@@ -198,7 +219,11 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
       map.getView().fit([dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], { padding: [20, 20, 20, 20] })
     }
   }, [dem?.elev]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { ref.current.reliefLayer?.setVisible(basemap === 'relief') }, [basemap])
+  useEffect(() => {
+    const { reliefLayer, orthoLayer } = ref.current
+    reliefLayer?.setVisible(basemap !== 'trek') // el relieve también rellena los bordes sin ortofoto
+    orthoLayer?.setVisible(basemap === 'ortho')
+  }, [basemap])
 
   // capa de radiación
   useEffect(() => {
