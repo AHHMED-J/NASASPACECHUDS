@@ -1,44 +1,58 @@
-// Recorta Gale del DEM global MOLA/HRSC (USGS, 200 m/px, enteros de 16 bits en METROS)
-// usando peticiones parciales (range requests): no descarga los ~11 GB del archivo.
-// Uso: npm run fetch-dem
-// Fuente: https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m
-// Licencia: MOLA (CC0) + HRSC (CC BY-SA 3.0 IGO). Citar a los autores.
+// DEM de Gale a 1 m (USGS "Mars MSL Gale Merged DEM 1m", HiRISE+CTX+HRSC anclado a MOLA), zona de Curiosity.
+// Lee el GeoTIFF remoto (3.6 GB) por filas con peticiones parciales y lo reduce a celdas de CELL_M metros
+// promediando los píxeles de 1 m (ignorando nodata). Sale en binario Float32 (NaN = sin dato).
+// Uso: npm run fetch-dem   (varios minutos; ~300 MB de descarga)
+// Fuente: https://astrogeology.usgs.gov/search/map/mars_msl_gale_merged_dem_1m
+// CRS del archivo: "Mars_Equirectangular_clon0" (esfera R=3396190 m): lon = x/R, lat = y/R.
 import { fromUrl } from 'geotiff'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
-const URL_DEM = 'https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif'
-const BBOX = [136.5, -6.5, 139.0, -4.0] // lonMin, latMin, lonMax, latMax
-const SIZE = 200
+const URL_DEM = 'https://planetarymaps.usgs.gov/mosaic/Mars/MSL/MSL_Gale_DEM_Mosaic_1m_v3.tif'
+const CELL_M = 50 // tamaño de celda de salida (m)
+const ROWS_PER_CELL = [13, 37] // filas de 1 m muestreadas dentro de cada bloque de 50 (promedio vertical parcial)
+const CONCURRENCY = 16
+const R = 3396190
+const deg = (rad) => (rad * 180) / Math.PI
 
 const tiff = await fromUrl(URL_DEM)
 const img = await tiff.getImage()
-const [west, , , north] = img.getBoundingBox()
-const [resX, resY] = img.getResolution() // resY es negativo
+const [xmin, ymin, xmax, ymax] = img.getBoundingBox()
+const W = img.getWidth(), H = img.getHeight()
 const nodata = img.getGDALNoData()
+const w = Math.floor(W / CELL_M), h = Math.floor(H / CELL_M)
+const bbox = [deg(xmin / R), deg(ymin / R), deg((xmin + w * CELL_M) / R), deg(ymax / R)]
+bbox[1] = deg((ymax - h * CELL_M) / R)
+console.log(`origen ${W}x${H} px (1 m) -> ${w}x${h} celdas de ${CELL_M} m; bbox lon/lat`, bbox.map((v) => v.toFixed(4)).join(', '))
 
-const x0 = Math.floor((BBOX[0] - west) / resX)
-const x1 = Math.ceil((BBOX[2] - west) / resX)
-const y0 = Math.floor((north - BBOX[3]) / -resY)
-const y1 = Math.ceil((north - BBOX[1]) / -resY)
-console.log(`ventana nativa ${x1 - x0}x${y1 - y0} px -> remuestreo a ${SIZE}x${SIZE}`)
+const out = new Float32Array(w * h).fill(NaN)
+let done = 0
+async function doRow(j) {
+  const sum = new Float64Array(w), cnt = new Uint16Array(w)
+  for (const off of ROWS_PER_CELL) {
+    const y = j * CELL_M + off
+    const [row] = await tiff.readRasters({ window: [0, y, W, y + 1], interleave: false })
+    for (let i = 0; i < w; i++)
+      for (let k = i * CELL_M; k < (i + 1) * CELL_M; k++) {
+        const v = row[k]
+        if (v !== nodata && Number.isFinite(v)) { sum[i] += v; cnt[i]++ }
+      }
+  }
+  const need = (ROWS_PER_CELL.length * CELL_M) / 2
+  for (let i = 0; i < w; i++) if (cnt[i] >= need) out[j * w + i] = sum[i] / cnt[i]
+  if (++done % 100 === 0) console.log(`filas ${done}/${h}`)
+}
+const queue = Array.from({ length: h }, (_, j) => j)
+await Promise.all(Array.from({ length: CONCURRENCY }, async () => { for (let j; (j = queue.shift()) !== undefined; ) await doRow(j) }))
 
-const [band] = await tiff.readRasters({
-  window: [x0, y0, x1, y1],
-  width: SIZE,
-  height: SIZE,
-  resampleMethod: 'bilinear',
-  interleave: false,
-})
-const elev = Array.from(band, (v) => Math.round(v))
-if (elev.some((v) => v === nodata || !Number.isFinite(v))) throw new Error('Hay celdas sin dato (nodata) en el recorte')
-
-const elevMin = Math.min(...elev), elevMax = Math.max(...elev)
+let min = Infinity, max = -Infinity, valid = 0
+for (const v of out) if (!Number.isNaN(v)) { valid++; if (v < min) min = v; if (v > max) max = v }
 mkdirSync(new URL('../public/data/', import.meta.url), { recursive: true })
+writeFileSync(new URL('../public/data/gale-dem.f32', import.meta.url), Buffer.from(out.buffer))
 writeFileSync(
   new URL('../public/data/gale-dem.json', import.meta.url),
   JSON.stringify({
-    bbox: BBOX, size: SIZE, elevMin, elevMax, elev,
-    source: 'USGS MOLA/HRSC blended DEM 200 m (v2), metros sobre el datum de Marte',
+    w, h, cellM: CELL_M, bbox, elevMin: Math.round(min), elevMax: Math.round(max), validFraction: valid / (w * h),
+    source: 'USGS Mars MSL Gale Merged DEM 1m v3 (HiRISE+CTX+HRSC, MOLA-tied), promediado a celdas de ' + CELL_M + ' m',
   }),
 )
-console.log(`OK gale-dem.json ${SIZE}x${SIZE}  elevación real: ${elevMin} .. ${elevMax} m`)
+console.log(`OK ${w}x${h}; elevación real ${min.toFixed(0)}..${max.toFixed(0)} m; con dato: ${(100 * valid / (w * h)).toFixed(1)}%`)

@@ -34,15 +34,19 @@ const tileGrid = new TileGrid({
   tileSize: 256,
 })
 
-function heatUrl(dem, layer) {
-  const { size } = dem
-  const risk = dem.radRisk
+const canvasFor = (dem) => {
   const c = document.createElement('canvas')
-  c.width = c.height = size
+  c.width = dem.w
+  c.height = dem.h
   const ctx = c.getContext('2d')
-  const img = ctx.createImageData(size, size)
-  for (let i = 0; i < size * size; i++) {
-    const t = risk[i] // 0 bajo riesgo (azul) -> 1 alto (rojo)
+  return { c, ctx, img: ctx.createImageData(dem.w, dem.h) }
+}
+
+function heatUrl(dem) {
+  const { c, ctx, img } = canvasFor(dem)
+  for (let i = 0; i < dem.n; i++) {
+    const t = dem.radRisk[i] // 0 bajo riesgo (azul) -> 1 alto (rojo)
+    if (Number.isNaN(t)) continue
     img.data[i * 4] = 255 * t
     img.data[i * 4 + 1] = 80 * (1 - Math.abs(t - 0.5) * 2)
     img.data[i * 4 + 2] = 255 * (1 - t)
@@ -52,20 +56,47 @@ function heatUrl(dem, layer) {
   return c.toDataURL()
 }
 
+// Rojo = bloqueada por el filtro; gris = sin dato (fuera de la cobertura del DEM)
 function maskCanvas(dem, filter) {
-  const { size } = dem
-  const c = document.createElement('canvas')
-  c.width = c.height = size
-  const ctx = c.getContext('2d')
-  const img = ctx.createImageData(size, size)
-  for (let i = 0; i < size * size; i++) {
-    if (isBlocked(dem, i, filter)) {
-      img.data[i * 4] = 255
-      img.data[i * 4 + 1] = 40
-      img.data[i * 4 + 2] = 40
-      img.data[i * 4 + 3] = 140
+  const { c, ctx, img } = canvasFor(dem)
+  for (let i = 0; i < dem.n; i++) {
+    if (Number.isNaN(dem.elev[i])) {
+      img.data.set([70, 70, 80, 200], i * 4)
+    } else if (isBlocked(dem, i, filter)) {
+      img.data.set([255, 40, 40, 140], i * 4)
     }
   }
+  ctx.putImageData(img, 0, 0)
+  return c.toDataURL()
+}
+
+// Relieve sombreado del propio DEM (luz desde el NO) teñido por altura
+const RAMP = [[0, [45, 70, 120]], [0.35, [60, 130, 110]], [0.65, [190, 170, 90]], [1, [235, 225, 210]]]
+function ramp(t) {
+  for (let k = 1; k < RAMP.length; k++)
+    if (t <= RAMP[k][0]) {
+      const [t0, a] = RAMP[k - 1], [t1, b] = RAMP[k], f = (t - t0) / (t1 - t0)
+      return a.map((v, q) => v + (b[q] - v) * f)
+    }
+  return RAMP[RAMP.length - 1][1]
+}
+function reliefUrl(dem) {
+  const { c, ctx, img } = canvasFor(dem)
+  const { w, h, elev, cellM, elevMin, elevMax } = dem
+  const at = (x, y) => elev[Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))]
+  const az = (315 * Math.PI) / 180, alt = (45 * Math.PI) / 180, vex = 2
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x
+      if (Number.isNaN(elev[i])) continue
+      const dzdx = (vex * (at(x + 1, y) - at(x - 1, y))) / (2 * cellM)
+      const dzdy = (vex * (at(x, y + 1) - at(x, y - 1))) / (2 * cellM)
+      const sl = Math.atan(Math.hypot(dzdx, dzdy)), asp = Math.atan2(dzdy, -dzdx)
+      const shade = Math.max(0, Math.sin(alt) * Math.cos(sl) + Math.cos(alt) * Math.sin(sl) * Math.cos(az - asp))
+      const col = ramp((elev[i] - elevMin) / (elevMax - elevMin))
+      const k = 0.35 + 0.9 * shade
+      img.data.set([col[0] * k, col[1] * k, col[2] * k, 255], i * 4)
+    }
   ctx.putImageData(img, 0, 0)
   return c.toDataURL()
 }
@@ -73,7 +104,7 @@ function maskCanvas(dem, filter) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-export default function MapView({ dem, layer, filter, route, start, end, onPick }) {
+export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick }) {
   const el = useRef(null)
   const ref = useRef({})
   const pickRef = useRef(onPick)
@@ -83,6 +114,7 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
     const route = new VectorSource()
     const maskLayer = new ImageLayer({ opacity: 1 })
     const heatLayer = new ImageLayer({ opacity: 1 })
+    const reliefLayer = new ImageLayer({ opacity: 1 })
     const map = new Map({
       target: el.current,
       layers: [
@@ -96,6 +128,7 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
             attributions: 'NASA Trek · MOLA',
           }),
         }),
+        reliefLayer,
         heatLayer,
         maskLayer,
         new VectorLayer({
@@ -108,7 +141,7 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
           },
         }),
       ],
-      view: new View({ projection: MARS, center: [137.75, -5.25], resolution: 0.0035 }),
+      view: new View({ projection: MARS, center: [137.4, -4.6], resolution: 0.0012 }),
       // el arrastre normal traza la ruta; Shift+arrastrar mueve el mapa
       interactions: defaultInteractions({ dragPan: false, shiftDragZoom: false }).extend([new DragPan({ condition: shiftKeyOnly })]),
     })
@@ -130,7 +163,7 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
     vp.addEventListener('pointerdown', down)
     vp.addEventListener('pointermove', move)
     vp.addEventListener('pointerup', up)
-    ref.current = { map, route, maskLayer, heatLayer }
+    ref.current = { map, route, maskLayer, heatLayer, reliefLayer }
     return () => {
       vp.removeEventListener('pointerdown', down)
       vp.removeEventListener('pointermove', move)
@@ -152,14 +185,29 @@ export default function MapView({ dem, layer, filter, route, start, end, onPick 
     )
   }, [dem, filter])
 
-  // capa simulada (radiación / temperatura)
+  // relieve del DEM (solo se recalcula si cambia la malla base, no la radiación) + encuadre inicial
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (!dem) return
+    const { reliefLayer, map } = ref.current
+    reliefLayer.setSource(
+      new ImageStatic({ url: reliefUrl(dem), projection: MARS, imageExtent: [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], interpolate: true }),
+    )
+    if (!fitted.current) {
+      fitted.current = true
+      map.getView().fit([dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], { padding: [20, 20, 20, 20] })
+    }
+  }, [dem?.elev]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { ref.current.reliefLayer?.setVisible(basemap === 'relief') }, [basemap])
+
+  // capa de radiación
   useEffect(() => {
     if (!dem) return
     const { heatLayer } = ref.current
     if (layer === 'none') return heatLayer.setSource(null)
     heatLayer.setSource(
       new ImageStatic({
-        url: heatUrl(dem, layer),
+        url: heatUrl(dem),
         projection: MARS,
         imageExtent: [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax],
         interpolate: true,

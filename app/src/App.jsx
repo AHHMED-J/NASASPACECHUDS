@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
 import { loadDem } from './lib/dem'
@@ -11,7 +11,8 @@ export default function App() {
   const [baseDem, setDem] = useState(null)
   const [solar, setSolar] = useState('mid')
   const [error, setError] = useState(null)
-  const [maxElev, setMaxElev] = useState(-500)
+  const [maxElevSel, setMaxElevSel] = useState(null)
+  const [basemap, setBasemap] = useState('relief')
   const [maxSlope, setMaxSlope] = useState(20)
   const [w, setW] = useState({ slope: 1, rad: 2 })
   const [temp, setTemp] = useState(null)
@@ -24,11 +25,24 @@ export default function App() {
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
   useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
 
-  // misma malla, pero la radiación depende de la actividad solar elegida
-  const dem = useMemo(() => (baseDem ? { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi) } : null), [baseDem, solar])
+  // misma malla; la radiación depende de la actividad solar y de la presión real (MCD) de la estación/hora elegidas
+  const dem = useMemo(() => {
+    if (!baseDem) return null
+    let atm = null
+    const p = temp?.table[ls]?.[hour]?.pres
+    if (p) {
+      const c = baseDem.cellOf(temp.point.lon, temp.point.lat)
+      const z = c ? baseDem.elev[c[1] * baseDem.w + c[0]] : NaN
+      if (Number.isFinite(z)) atm = { pressure: p, elev: z }
+    }
+    return { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi, atm) }
+  }, [baseDem, solar, temp, ls, hour])
+  const maxElev = maxElevSel ?? (baseDem ? Math.round((baseDem.elevMin + 0.75 * (baseDem.elevMax - baseDem.elevMin)) / 50) * 50 : 0)
   const filter = useMemo(() => ({ maxElev, maxSlope }), [maxElev, maxSlope])
-  const route = useMemo(() => (dem && start && end ? findRoute(dem, start, end, filter, w) : null), [dem, start, end, filter, w])
-  const noRoute = start && end && !route
+  // el cálculo A* puede tardar ~0.1-0.7 s en rutas largas: se aplaza para que el arrastre siga fluido
+  const dEnd = useDeferredValue(end)
+  const route = useMemo(() => (dem && start && dEnd ? findRoute(dem, start, dEnd, filter, w) : null), [dem, start, dEnd, filter, w])
+  const noRoute = start && end && end === dEnd && !route
 
   // arrastrar: 'down' fija el inicio, 'move' actualiza el destino (la ruta A* se recalcula en vivo)
   const onPick = (phase, [lon, lat]) => {
@@ -38,14 +52,14 @@ export default function App() {
     if (phase === 'down') { setStart(c); setEnd(null) }
     else if (phase === 'move' || phase === 'up') setEnd((prev) => (prev && prev[0] === c[0] && prev[1] === c[1] ? prev : c))
   }
-  const blockedEnd = dem && start && end && (isBlocked(dem, start[1] * dem.size + start[0], filter) || isBlocked(dem, end[1] * dem.size + end[0], filter))
+  const blockedEnd = dem && start && end && (isBlocked(dem, start[1] * dem.w + start[0], filter) || isBlocked(dem, end[1] * dem.w + end[0], filter))
 
   const stats = useMemo(() => {
     if (!route) return null
-    const el = route.cells.map(([x, y]) => dem.elev[y * dem.size + x])
-    const sl = route.cells.map(([x, y]) => dem.slope[y * dem.size + x])
-    const avg = (a) => route.cells.reduce((s, [x, y]) => s + a[y * dem.size + x], 0) / route.cells.length
-    return { rad: avg(dem.rad), km: route.distanceKm, min: Math.min(...el), max: Math.max(...el), slope: Math.max(...sl) }
+    const el = route.cells.map(([x, y]) => dem.elev[y * dem.w + x])
+    const sl = route.cells.map(([x, y]) => dem.slope[y * dem.w + x])
+    const avg = (a) => route.cells.reduce((s, [x, y]) => s + a[y * dem.w + x], 0) / route.cells.length
+    return { rad: avg(dem.rad), km: route.distanceKm, min: Math.round(Math.min(...el)), max: Math.round(Math.max(...el)), slope: Math.max(...sl) }
   }, [route, dem])
 
   return (
@@ -60,15 +74,15 @@ export default function App() {
           <h2 className="text-xs uppercase tracking-widest text-slate-500">Filtros</h2>
           <label className="block text-sm">
             Altura máxima: <b className="text-cyan-300">{maxElev} m</b>
-            <input type="range" className="w-full accent-cyan-400" min={dem?.elevMin ?? -4500} max={dem?.elevMax ?? 500} step={50}
-              value={maxElev} onChange={(e) => setMaxElev(+e.target.value)} />
+            <input type="range" className="w-full accent-cyan-400" min={dem?.elevMin ?? -4500} max={dem?.elevMax ?? 0} step={50}
+              value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
           </label>
           <label className="block text-sm">
             Pendiente máxima: <b className="text-cyan-300">{maxSlope}°</b>
             <input type="range" className="w-full accent-cyan-400" min={2} max={35} step={1}
               value={maxSlope} onChange={(e) => setMaxSlope(+e.target.value)} />
           </label>
-          <p className="text-xs text-red-300/80">■ Rojo = zona bloqueada por el filtro</p>
+          <p className="text-xs text-red-300/80">■ Rojo = bloqueada por el filtro · <span className="text-slate-400">■ Gris = sin dato</span></p>
         </section>
 
         <section className="space-y-3">
@@ -86,6 +100,13 @@ export default function App() {
             </select>
           </label>
           <p className="text-[11px] leading-snug text-slate-500">Medición RAD en Gale (referencia): {RAD_REF_TEXT}. El modelo está anclado a ese valor a ~-4.4 km; hacia arriba es extrapolación.</p>
+          <label className="block text-sm">
+            Mapa base:{' '}
+            <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={basemap} onChange={(e) => setBasemap(e.target.value)}>
+              <option value="relief">Relieve del DEM (50 m)</option>
+              <option value="trek">NASA Trek (MOLA 463 m)</option>
+            </select>
+          </label>
           <label className="block text-sm">
             Capa en mapa:{' '}
             <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={layer} onChange={(e) => setLayer(e.target.value)}>
@@ -128,7 +149,7 @@ export default function App() {
 
       <main className="relative min-h-0 flex-1">
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
-        <MapView dem={dem} layer={layer} filter={filter} route={route} start={start} end={end} onPick={onPick} />
+        <MapView dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
       </main>
     </div>
   )

@@ -44,13 +44,16 @@ const solarScale = (phi) => Math.max(0, (0.28 - 2.9e-4 * phi) / (0.28 - 2.9e-4 *
 // Riesgo 0..1 en escala FÍSICA FIJA (no relativa a la zona): 0.60 mSv/día -> 0, 0.90 -> 1.
 const RISK_LO = 0.6, RISK_HI = 0.9
 
-export function radiationFor(dem, phi = 500) {
-  const { size, elev } = dem
+// atm (opcional): presión real de la MCD en un punto { pressure: Pa, elev: m del punto }.
+// Con ella la presión de cada celda sigue la estación y la hora; sin ella se usa la presión de referencia.
+export function radiationFor(dem, phi = 500, atm = null) {
+  const { n, elev } = dem
   const s = SLOPE_PHI500 * solarScale(phi)
-  const rad = new Float32Array(size * size) // mSv/día (modelo)
-  const radRisk = new Float32Array(size * size)
-  for (let i = 0; i < size * size; i++) {
-    rad[i] = REF.doseEq + s * (REF.pressure - pressureAt(elev[i]))
+  const press = atm ? (h) => atm.pressure * Math.exp(-(h - atm.elev) / H_SCALE) : pressureAt
+  const rad = new Float32Array(n) // mSv/día (modelo)
+  const radRisk = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    rad[i] = REF.doseEq + s * (REF.pressure - press(elev[i]))
     radRisk[i] = Math.min(1, Math.max(0, (rad[i] - RISK_LO) / (RISK_HI - RISK_LO)))
   }
   return { rad, radRisk }
