@@ -18,7 +18,7 @@
 - Nombres de archivo con mayúsculas exactas (`Header.jsx` se importa como `./Header`).
 
 ## Demo: Mars Route (Gale)
-Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtros de **altura** y **pendiente**, ruta A* entre dos clics y perfil de elevación (Chart.js).
+Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtro de **altura máxima**, ruta A* multifactor entre dos clics y perfil de elevación (Chart.js).
 
 - Stack: React + Vite + Tailwind + OpenLayers + proj4 + Chart.js.
 - Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
@@ -35,4 +35,12 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
   - **Es una condición de hora/estación, no un costo espacial:** medimos 9 puntos dentro de los 150 km y la MCD solo varía ~1 K (su resolución es gruesa). Por eso no entra en el costo de A* ni hay capa de temperatura. Para variación espacial haría falta inercia térmica/albedo (THEMIS/TES, vía Trek).
   - Créditos de la MCD: LMD/OU/IAA/ESA/CNES. https://www-mars.lmd.jussieu.fr/mcd_python/
 - Radiación y estación: la presión de superficie de cada celda parte de la presión **real de la MCD** para la estación y hora elegidas (721-965 Pa en nuestra zona, coherente con el rango medido por REMS de 700-950 Pa que cita el paper).
-- A* solo lee `radRisk` (riesgo de radiación 0-1 en escala física fija), pendiente y los filtros de altura/pendiente.
+
+### Parámetros de la ruta (A*)
+**Constantes (no editables en la UI, ver `app/src/lib/constants.js`)**: pendiente máx. 20° (valor Artemis/xEMU lunar, supuesto), velocidad 2.7 km/h, excursión máx. 10 km (solo aviso), límite de dosis 600 mSv, rango térmico del traje 93–378 K (xEMU lunar; no hay límite de traje marciano publicado), base (Bradbury Landing), altura de antena 2 m, oblicuidad de Marte 25.19°, celda 50 m.
+
+**Variables (barra lateral)**: actividad solar, estación, hora local, pesos de esfuerzo / radiación / terreno rugoso / comunicación / sol, y altura máxima.
+
+**Factores en el costo**: esfuerzo metabólico (polinomio de Minetti 2002, coeficientes de memoria, sin verificar contra el paper; gravedad terrestre) + penalización por pendiente lateral (forma supuesta); radiación (modelo Guo 2018); rugosidad (desviación estándar de alturas de 1 m tras quitar tendencia, relativa al p95; es un proxy, el DEM no resuelve rocas; `gale-rough.f32` vía `npm run fetch-dem`); comunicación (línea de vista a la base, viewshed); sol/sombra (posición solar + sombras del terreno). Bloqueo: altura > máx., pendiente > 20° o sin dato.
+
+**Botón "Ver todos los datos considerados"** (`DataPanel.jsx`): lista parámetros variables, constantes con fuente, datos reales, modelos, resultado de la ruta actual y lo que NO se considera (dunas/arena, margen a acantilados más allá de no cortar esquinas, temperatura espacial, etc.).

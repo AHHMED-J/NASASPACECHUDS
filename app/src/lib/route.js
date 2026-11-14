@@ -1,4 +1,9 @@
-// A* sobre la malla del DEM. Las celdas que no pasan el filtro (altura / pendiente) se bloquean.
+// A* sobre la malla del DEM con costo multi-factor (ver el panel "datos considerados" de la app).
+// Bloqueadas: más alto que el límite de altura, más empinadas que la pendiente máxima, sin dato, y esquinas diagonales.
+// Costo de un paso = distancia × ( 1 + preferencias por celda  +  esfuerzo(subida/bajada)  +  pendiente lateral ).
+import { SCALE, CONST } from './constants.js'
+import { effortRel, EFFORT_REL_MIN } from './effort.js'
+
 // Heap binario con arreglos tipados (rápido para mallas de ~1 millón de celdas)
 class MinHeap {
   constructor(cap = 1 << 16) { this.p = new Float64Array(cap); this.v = new Int32Array(cap); this.size = 0 }
@@ -38,36 +43,41 @@ export function isBlocked(dem, i, { maxElev, maxSlope }) {
   return !(dem.elev[i] <= maxElev) || !(dem.slope[i] <= maxSlope)
 }
 
-// Costo por celda (multiplicador de distancia), precalculado una vez por combinación de filtros/pesos.
-// Infinity = bloqueada. Así el bucle de A* no vuelve a evaluar filtros ni penalizaciones por vecino.
+// Parte del costo que depende solo de la celda destino (precalculada y cacheada).
+// Infinity = bloqueada. Todos los términos son >= 0, así que el costo por metro es >= 1.
 let cache = null
 function prepare(dem, filter, w) {
   const c = cache
-  if (c && c.elev === dem.elev && c.slope === dem.slope && c.risk === dem.radRisk &&
-      c.maxElev === filter.maxElev && c.maxSlope === filter.maxSlope && c.ws === w.slope && c.wr === w.rad) return c
-  const { n, elev, slope, radRisk } = dem
+  if (c && c.elev === dem.elev && c.slope === dem.slope && c.rad === dem.radRisk && c.shade === dem.shade && c.comm === dem.commRisk && c.rough === dem.roughRisk &&
+      c.maxElev === filter.maxElev && c.maxSlope === filter.maxSlope && c.w.rad === w.rad && c.w.rough === w.rough && c.w.comm === w.comm && c.w.shade === w.shade) return c
+  const { n, elev, slope, radRisk, roughRisk, commRisk, shade } = dem
   const cost = new Float32Array(n)
-  let minRisk = Infinity
+  let minStatic = Infinity
   for (let i = 0; i < n; i++) {
     if (!(elev[i] <= filter.maxElev) || !(slope[i] <= filter.maxSlope)) { cost[i] = Infinity; continue }
-    const r = radRisk[i]
-    cost[i] = 1 + w.slope * (slope[i] / 10) ** 2 + w.rad * 8 * r
-    if (r < minRisk) minRisk = r
+    const v = 1 + w.rad * SCALE.rad * (radRisk[i] || 0) + w.rough * SCALE.rough * (roughRisk[i] || 0) +
+      w.comm * SCALE.comm * (commRisk[i] || 0) + w.shade * SCALE.shade * (shade[i] || 0)
+    cost[i] = v
+    if (v < minStatic) minStatic = v
   }
-  // Heurística admisible: toda celda permitida cuesta al menos (1 + w.rad*8*riesgoMínimo) por metro.
-  const mult = 1 + (Number.isFinite(minRisk) ? w.rad * 8 * minRisk : 0)
-  cache = { elev: dem.elev, slope: dem.slope, risk: dem.radRisk, maxElev: filter.maxElev, maxSlope: filter.maxSlope, ws: w.slope, wr: w.rad, cost, mult }
+  // Heurística admisible: cada celda permitida cuesta como mínimo minStatic por metro (esfuerzo y pendiente lateral solo suman).
+  cache = { elev: dem.elev, slope: dem.slope, rad: dem.radRisk, shade: dem.shade, comm: dem.commRisk, rough: dem.roughRisk,
+    maxElev: filter.maxElev, maxSlope: filter.maxSlope, w: { ...w }, cost, mult: Number.isFinite(minStatic) ? minStatic : 1 }
   return cache
 }
 
 const DX = [-1, 0, 1, -1, 1, -1, 0, 1]
 const DY = [-1, -1, -1, 0, 0, 1, 1, 1]
-const STEP = [Math.SQRT2, 1, Math.SQRT2, 1, 1, Math.SQRT2, 1, Math.SQRT2]
+const LEN = DX.map((x, k) => Math.hypot(x, DY[k]))
+const UX = DX.map((x, k) => x / LEN[k])
+const UY = DY.map((y, k) => y / LEN[k])
 const OCT = Math.SQRT2 - 1
+const TMAX = Math.tan((CONST.MAX_SLOPE_DEG * Math.PI) / 180)
 
-/** Devuelve { cells:[[x,y]...], distanceKm } o null si no hay ruta. */
-export function findRoute(dem, start, end, filter, w = { slope: 1, rad: 0 }) {
-  const { w: W, h: H, n, cellM } = dem
+/** Devuelve { cells:[[x,y]...], distanceKm } o null si no hay ruta.
+ *  w = { effort, rad, rough, comm, shade } (pesos de preferencia 0-5). */
+export function findRoute(dem, start, end, filter, w = { effort: 1, rad: 0, rough: 0, comm: 0, shade: 0 }) {
+  const { w: W, h: H, n, cellM, elev, gx, gy } = dem
   const { cost, mult } = prepare(dem, filter, w)
   const s = start[1] * W + start[0], e = end[1] * W + end[0]
   if (!Number.isFinite(cost[s]) || !Number.isFinite(cost[e])) return null
@@ -77,26 +87,39 @@ export function findRoute(dem, start, end, filter, w = { slope: 1, rad: 0 }) {
   const closed = new Uint8Array(n)
   const heap = new MinHeap()
   const ex = end[0], ey = end[1], k = mult * cellM
-  // heurística octil (distancia exacta en malla de 8 vecinos sin obstáculos) × costo mínimo por metro
   const hh = (x, y) => {
     const dx = Math.abs(x - ex), dy = Math.abs(y - ey)
     return k * (dx > dy ? dx + OCT * dy : dy + OCT * dx)
   }
+  const wE = w.effort
   g[s] = 0
   heap.push(s, hh(start[0], start[1]))
 
   while (heap.size) {
     const cur = heap.pop()
-    if (closed[cur]) continue // entrada vieja (ya se expandió con mejor costo)
+    if (closed[cur]) continue
     if (cur === e) break
     closed[cur] = 1
     const cx = cur % W, cy = (cur / W) | 0
-    const gc = g[cur]
+    const gc = g[cur], zc = elev[cur]
     for (let d = 0; d < 8; d++) {
-      const nx = cx + DX[d], ny = cy + DY[d]
+      const dx = DX[d], dy = DY[d]
+      const nx = cx + dx, ny = cy + dy
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
       const nb = ny * W + nx
-      const ng = gc + cellM * STEP[d] * cost[nb] // Infinity si está bloqueada: nunca mejora g
+      const cn = cost[nb]
+      if (cn === Infinity) continue
+      // no cortar esquinas: en un paso diagonal, las dos celdas contiguas deben estar libres
+      if (dx !== 0 && dy !== 0 && (cost[cy * W + nx] === Infinity || cost[ny * W + cx] === Infinity)) continue
+      const dist = cellM * LEN[d]
+      let step = cn
+      if (wE > 0) {
+        // esfuerzo según el gradiente del paso (subir cuesta más que bajar) y pendiente lateral
+        step += wE * (effortRel((elev[nb] - zc) / dist) - EFFORT_REL_MIN)
+        const cross = (gx[nb] * -UY[d] + gy[nb] * UX[d]) / TMAX
+        step += wE * cross * cross
+      }
+      const ng = gc + dist * step
       if (ng < g[nb]) {
         g[nb] = ng
         prev[nb] = cur

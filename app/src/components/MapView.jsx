@@ -17,7 +17,7 @@ import TileGrid from 'ol/tilegrid/TileGrid'
 import Feature from 'ol/Feature'
 import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point'
-import { Style, Stroke, Circle as CircleStyle, Fill } from 'ol/style'
+import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape } from 'ol/style'
 import { isBlocked } from '../lib/route'
 import 'ol/ol.css'
 
@@ -51,11 +51,13 @@ const canvasFor = (dem) => {
   return { c, ctx, img: ctx.createImageData(dem.w, dem.h) }
 }
 
-function heatUrl(dem) {
+function heatUrl(dem, layer) {
   const { c, ctx, img } = canvasFor(dem)
+  // todas las capas se expresan como riesgo 0..1 (azul = mejor, rojo = peor)
+  const risk = { rad: dem.radRisk, rough: dem.roughRisk, comm: dem.commRisk, shade: dem.shade }[layer]
   for (let i = 0; i < dem.n; i++) {
-    const t = dem.radRisk[i] // 0 bajo riesgo (azul) -> 1 alto (rojo)
-    if (Number.isNaN(t)) continue
+    const t = risk[i]
+    if (Number.isNaN(t) || Number.isNaN(dem.elev[i])) continue
     img.data[i * 4] = 255 * t
     img.data[i * 4 + 1] = 80 * (1 - Math.abs(t - 0.5) * 2)
     img.data[i * 4 + 2] = 255 * (1 - t)
@@ -158,6 +160,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
             const k = f.get('kind')
             if (k === 'line') return new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
             if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
+            if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
             return pt(k === 'start' ? '#22c55e' : '#f59e0b')
           },
         }),
@@ -204,7 +207,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
         interpolate: false,
       }),
     )
-  }, [dem, filter])
+  }, [dem?.elev, dem?.slope, filter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // relieve del DEM (solo se recalcula si cambia la malla base, no la radiación) + encuadre inicial
   const fitted = useRef(false)
@@ -232,7 +235,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     if (layer === 'none') return heatLayer.setSource(null)
     heatLayer.setSource(
       new ImageStatic({
-        url: heatUrl(dem),
+        url: heatUrl(dem, layer),
         projection: MARS,
         imageExtent: [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax],
         interpolate: true,
@@ -245,6 +248,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     if (!dem) return
     const src = ref.current.route
     src.clear()
+    if (dem.baseCell) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...dem.baseCell)), kind: 'base' }))
     if (start && end)
       src.addFeature(new Feature({ geometry: new LineString([dem.lonLat(...start), dem.lonLat(...end)]), kind: 'straight' }))
     if (route) {

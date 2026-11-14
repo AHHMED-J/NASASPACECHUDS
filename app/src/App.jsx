@@ -1,31 +1,55 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './components/MapView'
 import ElevationProfile from './components/ElevationProfile'
+import TemperatureCard from './components/TemperatureCard'
+import DataPanel from './components/DataPanel'
 import { loadDem } from './lib/dem'
 import { radiationFor, SOLAR, RAD_REF_TEXT } from './lib/radiation'
 import { loadTemp } from './lib/temperature'
-import TemperatureCard from './components/TemperatureCard'
+import { shadeMap } from './lib/sun'
+import { effortRel } from './lib/effort'
+import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
+
+const PREFS = [
+  ['effort', 'Menos esfuerzo', 'subidas y pendiente lateral'],
+  ['rad', 'Menos radiación', ''],
+  ['rough', 'Menos terreno rugoso', 'rocas y obstáculos'],
+  ['comm', 'Mantener comunicación', 'línea de vista con la base'],
+  ['shade', 'Preferir zonas con sol', ''],
+]
+const LAYERS = [
+  ['none', 'Ninguna'],
+  ['rad', 'Radiación (rojo = más dosis)'],
+  ['rough', 'Rugosidad (rojo = más rugoso)'],
+  ['comm', 'Comunicación (rojo = sin vista a la base)'],
+  ['shade', 'Sombra (rojo = en sombra)'],
+]
+
+const Select = (props) => <select {...props} className="mt-1 w-full rounded border border-cyan-900 bg-[#0b1322] p-1 text-sm" />
+const Title = ({ children }) => <h2 className="text-xs uppercase tracking-widest text-slate-500">{children}</h2>
 
 export default function App() {
   const [baseDem, setDem] = useState(null)
-  const [solar, setSolar] = useState('mid')
-  const [error, setError] = useState(null)
-  const [maxElevSel, setMaxElevSel] = useState(null)
-  const [basemap, setBasemap] = useState('ortho')
-  const [maxSlope, setMaxSlope] = useState(20)
-  const [w, setW] = useState({ slope: 1, rad: 2 })
   const [temp, setTemp] = useState(null)
+  const [error, setError] = useState(null)
+  const [solar, setSolar] = useState('mid')
   const [ls, setLs] = useState(90)
   const [hour, setHour] = useState(12)
+  const [maxElevSel, setMaxElevSel] = useState(null)
+  const [w, setW] = useState({ effort: 1, rad: 2, rough: 1, comm: 1, shade: 1 })
+  const [basemap, setBasemap] = useState('ortho')
   const [layer, setLayer] = useState('none')
   const [start, setStart] = useState(null)
   const [end, setEnd] = useState(null)
+  const [showData, setShowData] = useState(false)
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
   useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
 
-  // misma malla; la radiación depende de la actividad solar y de la presión real (MCD) de la estación/hora elegidas
+  // sombras: dependen de la estación y la hora
+  const shade = useMemo(() => (baseDem ? shadeMap(baseDem, ls, hour) : null), [baseDem, ls, hour])
+  // radiación: depende de la actividad solar y de la presión real (MCD) de la estación/hora
   const dem = useMemo(() => {
     if (!baseDem) return null
     let atm = null
@@ -35,12 +59,13 @@ export default function App() {
       const z = c ? baseDem.elev[c[1] * baseDem.w + c[0]] : NaN
       if (Number.isFinite(z)) atm = { pressure: p, elev: z }
     }
-    return { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi, atm) }
-  }, [baseDem, solar, temp, ls, hour])
+    return { ...baseDem, ...radiationFor(baseDem, SOLAR[solar].phi, atm), shade }
+  }, [baseDem, solar, temp, ls, hour, shade])
+
   const maxElev = maxElevSel ?? (baseDem ? Math.round((baseDem.elevMin + 0.75 * (baseDem.elevMax - baseDem.elevMin)) / 50) * 50 : 0)
-  const filter = useMemo(() => ({ maxElev, maxSlope }), [maxElev, maxSlope])
-  // Un solo cálculo A* a la vez y siempre con el último destino: si llegan más movimientos del mouse
-  // mientras se calcula, no se acumulan (se recalcula una vez al terminar con los datos más recientes).
+  const filter = useMemo(() => ({ maxElev, maxSlope: CONST.MAX_SLOPE_DEG }), [maxElev])
+
+  // Un solo cálculo A* a la vez y siempre con el último destino (los movimientos intermedios no se acumulan).
   const [route, setRoute] = useState(null)
   const [computing, setComputing] = useState(false)
   const job = useRef({ busy: false, again: false, args: null })
@@ -63,7 +88,7 @@ export default function App() {
   }, [dem, start, end, filter, w])
   const noRoute = start && end && !computing && !route
 
-  // arrastrar: 'down' fija el inicio, 'move' actualiza el destino (la ruta A* se recalcula en vivo)
+  // arrastrar: 'down' fija el inicio, 'move' actualiza el destino
   const onPick = (phase, [lon, lat]) => {
     if (!dem) return
     const c = dem.cellOf(lon, lat)
@@ -75,11 +100,50 @@ export default function App() {
 
   const stats = useMemo(() => {
     if (!route) return null
-    const el = route.cells.map(([x, y]) => dem.elev[y * dem.w + x])
-    const sl = route.cells.map(([x, y]) => dem.slope[y * dem.w + x])
-    const avg = (a) => route.cells.reduce((s, [x, y]) => s + a[y * dem.w + x], 0) / route.cells.length
-    return { rad: avg(dem.rad), km: route.distanceKm, min: Math.round(Math.min(...el)), max: Math.round(Math.max(...el)), slope: Math.max(...sl) }
-  }, [route, dem])
+    const { cells } = route
+    const speed = CONST.WALK_KMH * 1000 // m/h
+    const idx = (c) => c[1] * dem.w + c[0]
+    let seg = 0, eff = 0, dose = 0, sun = 0, vis = 0, rough = 0, nRough = 0, maxSlope = 0, minE = Infinity, maxE = -Infinity, maxExc = 0
+    cells.forEach((c, k) => {
+      const i = idx(c)
+      maxSlope = Math.max(maxSlope, dem.slope[i])
+      minE = Math.min(minE, dem.elev[i]); maxE = Math.max(maxE, dem.elev[i])
+      if (dem.shade[i] === 0) sun++
+      if (dem.visible[i]) vis++
+      if (Number.isFinite(dem.rough[i])) { rough += dem.rough[i]; nRough++ }
+      if (dem.baseCell) maxExc = Math.max(maxExc, Math.hypot(c[0] - dem.baseCell[0], c[1] - dem.baseCell[1]) * dem.cellM)
+      if (k) {
+        const p = cells[k - 1]
+        const d = Math.hypot(c[0] - p[0], c[1] - p[1]) * dem.cellM
+        seg += d
+        eff += effortRel((dem.elev[i] - dem.elev[idx(p)]) / d) * d
+        dose += (dem.rad[i] / 24) * (d / speed) // mSv/día -> mSv/h × horas en la celda
+      }
+    })
+    const timeH = seg / speed
+    // temperatura de superficie durante la salida (la tabla de la MCD es cada 2 h)
+    let tMin = null, tMax = null
+    if (temp) {
+      for (let t = 0; t <= Math.ceil(timeH / 2) * 2; t += 2) {
+        const hh = (Math.floor(hour / 2) * 2 + t) % 24
+        const v = temp.table[ls][hh].surf
+        tMin = tMin === null ? v : Math.min(tMin, v)
+        tMax = tMax === null ? v : Math.max(tMax, v)
+      }
+    }
+    return {
+      km: route.distanceKm, timeH, doseMsv: dose, effortRel: seg ? eff / seg : 1,
+      sunPct: (100 * sun) / cells.length, visPct: (100 * vis) / cells.length, rough: nRough ? rough / nRough : NaN,
+      maxSlope, min: Math.round(minE), max: Math.round(maxE), maxExcKm: maxExc / 1000, tMin, tMax,
+    }
+  }, [route, dem, temp, ls, hour])
+
+  const warnings = []
+  if (stats) {
+    if (stats.maxExcKm > CONST.MAX_EXCURSION_KM) warnings.push(`Se aleja ${stats.maxExcKm.toFixed(1)} km de la base (planificación: ${CONST.MAX_EXCURSION_KM} km).`)
+    if (stats.tMin !== null && (stats.tMin < CONST.SUIT_EXT_K[0] || stats.tMax > CONST.SUIT_EXT_K[1])) warnings.push('La temperatura sale del rango externo de diseño del traje (lunar).')
+    if (stats.visPct < 100) warnings.push(`${(100 - stats.visPct).toFixed(0)}% del recorrido sin línea de vista a la base.`)
+  }
 
   return (
     <div className="flex h-full flex-col md:flex-row">
@@ -87,83 +151,87 @@ export default function App() {
         <header>
           <h1 className="text-lg font-bold tracking-wide text-cyan-300">MARS ROUTE · Gale</h1>
           <p className="text-xs text-slate-400">Prototipo de HUD de navegación EVA</p>
+          <button className="mt-2 w-full rounded border border-cyan-700 bg-cyan-900/30 px-3 py-1.5 text-sm font-bold text-cyan-200 hover:bg-cyan-800/50" onClick={() => setShowData(true)}>
+            Ver todos los datos considerados
+          </button>
         </header>
 
-        <section className="space-y-4">
-          <h2 className="text-xs uppercase tracking-widest text-slate-500">Filtros</h2>
-          <label className="block text-sm">
-            Altura máxima: <b className="text-cyan-300">{maxElev} m</b>
-            <input type="range" className="w-full accent-cyan-400" min={dem?.elevMin ?? -4500} max={dem?.elevMax ?? 0} step={50}
-              value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
+        <section className="space-y-3">
+          <Title>Escenario</Title>
+          <label className="block text-sm">Actividad solar
+            <Select value={solar} onChange={(e) => setSolar(e.target.value)}>
+              {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </Select>
           </label>
-          <label className="block text-sm">
-            Pendiente máxima: <b className="text-cyan-300">{maxSlope}°</b>
-            <input type="range" className="w-full accent-cyan-400" min={2} max={35} step={1}
-              value={maxSlope} onChange={(e) => setMaxSlope(+e.target.value)} />
-          </label>
-          <p className="text-xs text-red-300/80">■ Rojo = bloqueada por el filtro · <span className="text-slate-400">■ Gris = sin dato</span></p>
+          <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xs uppercase tracking-widest text-slate-500">Prioridades de la ruta <span className="normal-case text-amber-400">(radiación: modelo)</span></h2>
-          {[['slope', 'Evitar pendiente'], ['rad', 'Evitar radiación']].map(([k, label]) => (
+          <Title>Prioridades de la ruta</Title>
+          {PREFS.map(([k, label, hint]) => (
             <label key={k} className="block text-sm">
               {label}: <b className="text-cyan-300">{w[k]}</b>
+              {hint && <span className="ml-1 text-[11px] text-slate-500">({hint})</span>}
               <input type="range" className="w-full accent-cyan-400" min={0} max={5} step={0.5} value={w[k]} onChange={(e) => setW({ ...w, [k]: +e.target.value })} />
             </label>
           ))}
           <label className="block text-sm">
-            Actividad solar:{' '}
-            <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={solar} onChange={(e) => setSolar(e.target.value)}>
-              {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </label>
-          <p className="text-[11px] leading-snug text-slate-500">Medición RAD en Gale (referencia): {RAD_REF_TEXT}. El modelo está anclado a ese valor a ~-4.4 km; hacia arriba es extrapolación.</p>
-          <label className="block text-sm">
-            Mapa base:{' '}
-            <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={basemap} onChange={(e) => setBasemap(e.target.value)}>
-              <option value="ortho">Ortofoto HiRISE (Trek)</option>
-              <option value="relief">Relieve del DEM (50 m)</option>
-              <option value="trek">NASA Trek (MOLA 463 m)</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            Capa en mapa:{' '}
-            <select className="ml-1 rounded border border-cyan-900 bg-[#0b1322] p-1" value={layer} onChange={(e) => setLayer(e.target.value)}>
-              <option value="none">Ninguna</option>
-              <option value="rad">Radiación (modelo)</option>
-            </select>
+            Altura máxima: <b className="text-cyan-300">{maxElev} m</b>
+            <input type="range" className="w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
           </label>
         </section>
 
+        <section className="space-y-2">
+          <Title>Mapa</Title>
+          <label className="block text-sm">Mapa base
+            <Select value={basemap} onChange={(e) => setBasemap(e.target.value)}>
+              <option value="ortho">Ortofoto HiRISE (Trek)</option>
+              <option value="relief">Relieve del DEM (50 m)</option>
+              <option value="trek">NASA Trek (MOLA 463 m)</option>
+            </Select>
+          </label>
+          <label className="block text-sm">Capa
+            <Select value={layer} onChange={(e) => setLayer(e.target.value)}>
+              {LAYERS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </Select>
+          </label>
+          <p className="text-[11px] text-slate-500"><span className="text-red-300/80">■ Rojo</span> = bloqueado (muy alto o más de {CONST.MAX_SLOPE_DEG}° de pendiente) · <span className="text-slate-400">■ Gris</span> = sin dato · <span className="text-sky-300">▲</span> base</p>
+        </section>
+
         <section className="text-sm">
-          <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Ruta</h2>
-          <p className="mb-2 text-slate-400">Mantén el clic en el <b className="text-green-400">inicio</b>, arrastra y suelta en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
-          {noRoute && <p className="text-red-400">{blockedEnd ? 'El inicio o el destino cae en una zona roja (bloqueada). Elige puntos fuera del rojo o relaja los filtros.' : 'No hay camino con estos filtros. Relájalos.'}</p>}
+          <Title>Ruta</Title>
+          <p className="my-2 text-slate-400">Mantén el clic en el <b className="text-green-400">inicio</b>, arrastra y suelta en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
+          {noRoute && <p className="text-red-400">{blockedEnd ? 'El inicio o el destino cae en una zona bloqueada. Elige puntos fuera del rojo o sube la altura máxima.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
           {stats && (
-            <dl className="grid grid-cols-2 gap-2">
-              <div><dt className="text-xs text-slate-500">Distancia</dt><dd className="text-lg text-cyan-300">{stats.km.toFixed(1)} km</dd></div>
-              <div><dt className="text-xs text-slate-500">Pend. máx</dt><dd className="text-lg text-cyan-300">{stats.slope.toFixed(1)}°</dd></div>
-              <div><dt className="text-xs text-slate-500">Radiación media (modelo)</dt><dd className="text-lg text-cyan-300">{stats.rad.toFixed(2)} mSv/d</dd></div>
-              <div><dt className="text-xs text-slate-500">Elev. mín</dt><dd className="text-lg text-cyan-300">{stats.min} m</dd></div>
-              <div><dt className="text-xs text-slate-500">Elev. máx</dt><dd className="text-lg text-cyan-300">{stats.max} m</dd></div>
-            </dl>
+            <>
+              <dl className="grid grid-cols-2 gap-x-2 gap-y-2">
+                {[
+                  ['Distancia', `${stats.km.toFixed(1)} km`],
+                  ['Tiempo a pie', `${stats.timeH.toFixed(1)} h`],
+                  ['Dosis de la salida', `${stats.doseMsv.toFixed(3)} mSv`],
+                  ['Radiación media', `${(stats.doseMsv / (stats.timeH / 24)).toFixed(2)} mSv/d`],
+                  ['Esfuerzo vs plano', `${stats.effortRel.toFixed(2)}×`],
+                  ['Pend. máx.', `${stats.maxSlope.toFixed(1)}°`],
+                  ['Al sol', `${stats.sunPct.toFixed(0)}%`],
+                  ['Con comunicación', `${stats.visPct.toFixed(0)}%`],
+                  ['Rugosidad media', Number.isNaN(stats.rough) ? '–' : `${stats.rough.toFixed(2)} m`],
+                  ['Elevación', `${stats.min} a ${stats.max} m`],
+                ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-500">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
+              </dl>
+              {stats.tMin !== null && <p className="mt-2 text-[11px] text-slate-400">Superficie durante la salida: {(stats.tMin - 273.15).toFixed(0)} a {(stats.tMax - 273.15).toFixed(0)} °C (rango del traje, lunar: {CONST.SUIT_EXT_K[0] - 273}…{CONST.SUIT_EXT_K[1] - 273} °C).</p>}
+              {warnings.map((m) => <p key={m} className="mt-1 text-[12px] text-amber-300">⚠ {m}</p>)}
+            </>
           )}
           {(start || end) && <button className="mt-3 rounded border border-cyan-800 px-3 py-1 text-xs hover:bg-cyan-900/40" onClick={() => { setStart(null); setEnd(null) }}>Reiniciar</button>}
         </section>
 
         <section className="shrink-0">
-          <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Temperatura <span className="normal-case text-green-400">(MCD, datos del modelo climático)</span></h2>
-          <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
-        </section>
-
-        <section className="shrink-0">
-          <h2 className="mb-2 text-xs uppercase tracking-widest text-slate-500">Perfil de elevación</h2>
-          <div className="h-40 md:h-48">{dem && <ElevationProfile dem={dem} route={route} />}</div>
+          <Title>Perfil de elevación</Title>
+          <div className="mt-2 h-40 md:h-48">{dem && <ElevationProfile dem={dem} route={route} />}</div>
         </section>
 
         <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          Temperatura: Mars Climate Database (LMD). Radiación: modelo con datos de MSL/RAD y HZETRN (Guo et al. 2018), no es mapa oficial. Mapa base: NASA Trek (MOLA). Elevación y pendiente: DEM MOLA/HRSC 200 m de USGS (datos reales).
+          Radiación: modelo anclado en datos de MSL/RAD ({RAD_REF_TEXT}). Temperatura y presión: Mars Climate Database (LMD). Elevación: DEM MOLA/HRSC/HiRISE de USGS. Mapa: NASA Trek. Detalle y fuentes en "Ver todos los datos considerados".
         </p>
       </aside>
 
@@ -171,6 +239,11 @@ export default function App() {
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
         <MapView dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
       </main>
+
+      {showData && (
+        <DataPanel onClose={() => setShowData(false)}
+          state={{ w, maxElev, solar, ls, hour, temp, stats, elevMin: baseDem?.elevMin, elevMax: baseDem?.elevMax }} />
+      )}
     </div>
   )
 }
