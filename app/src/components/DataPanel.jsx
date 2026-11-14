@@ -41,7 +41,7 @@ export default function DataPanel({ onClose, state }) {
             Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · sol {w.shade} (sin efecto en la ruta).
             Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación) <b>no es una magnitud física</b>.
           </Row>
-          <Row title="Inicio y destino" kind="info">Los puntos que arrastras en el mapa.</Row>
+          <Row title="Inicio y destino" kind="info">Los dos puntos que marcas con clic en el mapa.</Row>
         </ul>
 
         <H>2 · Constantes fijas (no se pueden cambiar)</H>

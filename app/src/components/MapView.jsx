@@ -3,9 +3,7 @@ import proj4 from 'proj4'
 import { register } from 'ol/proj/proj4'
 import { get as getProjection } from 'ol/proj'
 import Map from 'ol/Map'
-import DragPan from 'ol/interaction/DragPan'
 import { defaults as defaultInteractions } from 'ol/interaction/defaults'
-import { shiftKeyOnly } from 'ol/events/condition'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
 import ImageLayer from 'ol/layer/Image'
@@ -19,6 +17,7 @@ import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point'
 import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape, Text } from 'ol/style'
 import { isBlocked } from '../lib/route'
+import { REASONS } from '../lib/explain'
 import 'ol/ol.css'
 
 // Marte 2000 geográfico (el CRS que usa Trek: EPSG:104905)
@@ -115,11 +114,13 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick, curiosity }) {
+export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick, curiosity, why, sel, onSelect }) {
   const el = useRef(null)
   const ref = useRef({})
   const pickRef = useRef(onPick)
   pickRef.current = onPick
+  const selRef = useRef(onSelect)
+  selRef.current = onSelect
 
   useEffect(() => {
     const route = new VectorSource()
@@ -160,33 +161,36 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
             const k = f.get('kind')
             if (k === 'line') return new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
             if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
+            if (k === 'why') {
+              const on = f.get('selected')
+              return new Style({
+                zIndex: on ? 20 : 10,
+                image: new CircleStyle({ radius: on ? 13 : 10, fill: new Fill({ color: f.get('color') }), stroke: new Stroke({ color: on ? '#fff' : '#0f172a', width: on ? 3 : 2 }) }),
+                text: new Text({ text: String(f.get('n')), font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }) }),
+              })
+            }
+            if (k === 'alt') return [
+              new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
+              new Style({ stroke: new Stroke({ color: '#f87171', width: 3, lineDash: [8, 6] }) }),
+            ]
+            if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
             if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
             return pt(k === 'start' ? '#22c55e' : '#f59e0b')
           },
         }),
       ],
       view: new View({ projection: MARS, center: [137.4, -4.6], resolution: 0.0012, minResolution: 360 / 512 / 2 ** 16 }),
-      // el arrastre normal traza la ruta; Shift+arrastrar mueve el mapa
-      interactions: defaultInteractions({ dragPan: false, shiftDragZoom: false }).extend([new DragPan({ condition: shiftKeyOnly })]),
+      // arrastrar mueve el mapa; clic = inicio, segundo clic = destino (sin doble clic para zoom)
+      interactions: defaultInteractions({ doubleClickZoom: false }),
     })
-    let dragging = false
-    const vp = map.getViewport()
-    const coord = (ev) => map.getEventCoordinate(ev)
-    const down = (ev) => {
-      if (ev.button !== 0 || ev.shiftKey) return
-      dragging = true
-      vp.setPointerCapture?.(ev.pointerId)
-      pickRef.current('down', coord(ev))
+    // clic: si toca un marcador de giro lo selecciona; si no, fija inicio/destino
+    const click = (e) => {
+      const f = map.forEachFeatureAtPixel(e.pixel, (ft) => (ft.get('kind') === 'why' ? ft : null), { hitTolerance: 4 })
+      if (f) return selRef.current?.(f.get('n'))
+      pickRef.current('click', e.coordinate)
     }
-    const move = (ev) => dragging && pickRef.current('move', coord(ev))
-    const up = (ev) => {
-      if (!dragging) return
-      dragging = false
-      pickRef.current('up', coord(ev))
-    }
-    vp.addEventListener('pointerdown', down)
-    vp.addEventListener('pointermove', move)
-    vp.addEventListener('pointerup', up)
+    map.on('click', click)
+    map.on('pointermove', (e) => { map.getViewport().style.cursor = map.hasFeatureAtPixel(e.pixel, { layerFilter: () => true, hitTolerance: 4 }) ? 'pointer' : '' })
     // recorrido real de Curiosity (referencia, independiente de nuestra ruta)
     const curSrc = new VectorSource()
     map.getLayers().insertAt(map.getLayers().getLength() - 1, new VectorLayer({ source: curSrc, style: [ // debajo de nuestra ruta
@@ -195,9 +199,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     ] }))
     ref.current = { map, route, maskLayer, heatLayer, reliefLayer, orthoLayer, curSrc }
     return () => {
-      vp.removeEventListener('pointerdown', down)
-      vp.removeEventListener('pointermove', move)
-      vp.removeEventListener('pointerup', up)
+      map.un('click', click)
       map.setTarget(undefined)
     }
   }, [])
@@ -261,9 +263,16 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
       const coords = route.cells.map(([x, y]) => dem.lonLat(x, y))
       src.addFeature(new Feature({ geometry: new LineString(coords), kind: 'line' }))
     }
+    const it = why?.items.find((x) => x.n === sel)
+    if (it) { // el atajo que A* descartó y, si lo hay, el punto donde estaría bloqueado
+      src.addFeature(new Feature({ geometry: new LineString(it.shortcut.map((c) => dem.lonLat(...c))), kind: 'alt' }))
+      if (it.hot) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...it.hot)), kind: 'hot' }))
+    }
     if (start) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...start)), kind: 'start' }))
     if (end) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...end)), kind: 'end' }))
-  }, [dem, route, start, end])
+    for (const x of why?.items ?? [])
+      src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...x.at)), kind: 'why', n: x.n, color: REASONS[x.reason].color, selected: x.n === sel }))
+  }, [dem, route, start, end, why, sel])
 
   useEffect(() => {
     const src = ref.current?.curSrc

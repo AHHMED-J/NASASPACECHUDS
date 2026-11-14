@@ -138,3 +138,28 @@ export function findRoute(dem, start, end, filter, w = { effort: 1, rad: 0, roug
     dist += Math.hypot(cells[i][0] - cells[i - 1][0], cells[i][1] - cells[i - 1][1]) * cellM
   return { cells, distanceKm: dist / 1000 }
 }
+
+/** Desglose del costo de UN paso (celda i -> celda vecina j), con la misma fórmula que usa A*.
+ *  Devuelve metros "equivalentes" por componente; la suma es el costo del paso. */
+export function stepParts(dem, i, j, w) {
+  const { w: W, cellM, elev, gx, gy } = dem
+  const dxc = (j % W) - (i % W), dyc = ((j / W) | 0) - ((i / W) | 0)
+  const len = Math.hypot(dxc, dyc)
+  const dist = cellM * len
+  const ux = dxc / len, uy = dyc / len
+  const p = {
+    dist,
+    rad: dist * w.rad * SCALE.rad * (dem.radRisk[j] || 0),
+    rough: dist * w.rough * SCALE.rough * (dem.roughRisk[j] || 0),
+    comm: dist * w.comm * SCALE.comm * (dem.commRisk[j] || 0),
+    shade: dist * w.shade * SCALE.shade * (dem.shade[j] || 0),
+    sand: dist * (w.sand || 0) * SCALE.sand * ((dem.sandRisk && dem.sandRisk[j]) || 0),
+    effort: 0, cross: 0,
+  }
+  if (w.effort > 0) {
+    p.effort = dist * w.effort * (effortRel((elev[j] - elev[i]) / dist) - EFFORT_REL_MIN)
+    const c = (gx[j] * -uy + gy[j] * ux) / TMAX
+    p.cross = dist * w.effort * c * c
+  }
+  return p
+}

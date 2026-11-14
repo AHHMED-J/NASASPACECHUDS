@@ -53,3 +53,10 @@ Casilla "Mostrar recorrido real de Curiosity": dibuja el recorrido real del rove
 - "Usar su inicio y su posición en ese sol" pone nuestros extremos en los de Curiosity; se muestran distancia media/máxima al recorrido, % a menos de 500 m y largos.
 
 Limitación: Curiosity se desvió por ciencia, arena y desgaste de ruedas; no buscó el camino más corto.
+
+### Por qué esta ruta (explicación de giros)
+Clic en el inicio y clic en el destino (arrastrar mueve el mapa). A* corre una sola vez y luego `app/src/lib/explain.js`:
+1. Detecta los giros importantes simplificando la ruta (Douglas-Peucker; ignora zigzags menores a ~3 celdas o 2 % del largo).
+2. En cada giro compara el tramo real con el **atajo recto** entre el giro anterior y el siguiente, usando la misma fórmula de costo que A* (`stepParts` en `route.js`), separada por factor.
+3. El motivo es lo que hace inviable o más caro el atajo: bloqueo (pendiente > 20°, altura máxima, sin datos) o el factor con mayor sobrecosto (subida, ladera lateral, arena, radiación, comunicación, rugosidad). Si el atajo no es más caro (efecto de la cuadrícula), el giro no se explica.
+Se muestra como marcadores numerados por color de motivo, una lista en la barra lateral y, al seleccionar uno, el atajo descartado en rojo punteado (con una ✕ donde estaría bloqueado).

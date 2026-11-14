@@ -10,6 +10,7 @@ import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
+import { explainRoute, REASONS } from './lib/explain'
 import { loadCuriosity, compareRoutes, cutAtSol, solDate } from './lib/curiosity'
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
@@ -79,12 +80,14 @@ export default function App() {
   const filter = useMemo(() => ({ maxElev: bench ? Infinity : maxElev, maxSlope: CONST.MAX_SLOPE_DEG }), [maxElev, bench])
 
   // Un solo cálculo A* a la vez y siempre con el último destino (los movimientos intermedios no se acumulan).
-  const [route, setRoute] = useState(null)
+  const [rawRoute, setRoute] = useState(null)
+  const [why, setWhy] = useState(null) // explicación de los giros de la ruta actual
+  const [sel, setSel] = useState(null) // giro seleccionado
   const [computing, setComputing] = useState(false)
   const job = useRef({ busy: false, again: false, args: null })
   useEffect(() => {
     const j = job.current
-    if (!dem || !start || !end) { setRoute(null); return }
+    if (!dem || !start || !end) { setRoute(null); setWhy(null); setSel(null); return }
     j.args = { dem, start, end, filter, w }
     if (j.busy) { j.again = true; return }
     const run = () => {
@@ -92,22 +95,28 @@ export default function App() {
       setComputing(true)
       setTimeout(() => {
         const a = j.args
-        setRoute(findRoute(a.dem, a.start, a.end, a.filter, a.w))
+        const r = findRoute(a.dem, a.start, a.end, a.filter, a.w)
+        if (r) r.elev = a.dem.elev // malla con la que se calculó
+        setRoute(r)
+        setWhy(r ? explainRoute(a.dem, r, a.w, a.filter) : null) // mismos datos y pesos que A*
+        setSel(null)
         j.busy = false
         if (j.again) { j.again = false; run() } else setComputing(false)
       }, 0)
     }
     run()
   }, [dem, start, end, filter, w])
+  // la ruta solo vale para el DEM con el que se calculó (al cambiar de DEM se descarta)
+  const route = rawRoute && dem && rawRoute.elev === dem.elev ? rawRoute : null
   const noRoute = start && end && !computing && !route
 
-  // arrastrar: 'down' fija el inicio, 'move' actualiza el destino
+  // clic 1 = inicio, clic 2 = destino (A* y la explicación se calculan una sola vez); un tercer clic empieza otra ruta
   const onPick = (phase, [lon, lat]) => {
     if (!dem) return
     const c = dem.cellOf(lon, lat)
     if (!c) return
-    if (phase === 'down') { setStart(c); setEnd(null) }
-    else if (phase === 'move' || phase === 'up') setEnd((prev) => (prev && prev[0] === c[0] && prev[1] === c[1] ? prev : c))
+    if (!start || end) { setStart(c); setEnd(null) }
+    else setEnd(c)
   }
   const blockedEnd = dem && start && end && (isBlocked(dem, start[1] * dem.w + start[0], filter) || isBlocked(dem, end[1] * dem.w + end[0], filter))
 
@@ -196,7 +205,7 @@ export default function App() {
             <div className="flex items-baseline justify-between"><span className="text-slate-400">Altura máxima</span><b className="text-base text-cyan-300">{maxElev} m</b></div>
             <input type="range" className="mt-1 w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
           </label>
-          <p className="text-sm text-slate-400">Arrastra en el mapa del <b className="text-green-400">inicio</b> al <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
+          <p className="text-sm text-slate-400">Haz clic en el <b className="text-green-400">inicio</b> y luego en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Arrastrar mueve el mapa.</span></p>
           {noRoute && <p className="mt-2 text-sm text-red-400">{blockedEnd ? 'El inicio o el destino cae en zona bloqueada.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
           {stats && (
             <div className="mt-3 space-y-1.5">
@@ -206,6 +215,34 @@ export default function App() {
           )}
           {(start || end) && <button className="mt-3 rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => { setStart(null); setEnd(null) }}>Reiniciar</button>}
         </section>
+
+        {route && why && (
+          <section>
+            <Title>Por qué esta ruta</Title>
+            {why.items.length === 0 ? (
+              <p className="text-sm text-slate-400">Va prácticamente derecho: ningún desvío importante.</p>
+            ) : (
+              <>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {Object.entries(why.summary).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+                    <span key={k} className="rounded-full px-2 py-0.5 text-[11px] text-white" style={{ background: REASONS[k].color + 'cc' }}>{REASONS[k].icon} {REASONS[k].label} ×{n}</span>
+                  ))}
+                </div>
+                <ol className="space-y-1.5">
+                  {why.items.map((it) => (
+                    <li key={it.n}>
+                      <button onClick={() => setSel(sel === it.n ? null : it.n)} className={`flex w-full gap-2 rounded-md px-2 py-1.5 text-left text-xs ${sel === it.n ? 'bg-white/15 text-slate-100' : 'text-slate-300 hover:bg-white/5'}`}>
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: REASONS[it.reason].color }}>{it.n}</span>
+                        <span>{it.text}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-[11px] text-slate-500">Toca un número (aquí o en el mapa) para ver en rojo el camino recto que se descartó.</p>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="shrink-0">
           <Title>Perfil de elevación</Title>
@@ -293,7 +330,7 @@ export default function App() {
             ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-400">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
           </dl>
         )}
-        <MapView curiosity={bench ? curCut?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} />
+        <MapView curiosity={bench ? curCut?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} why={route ? why : null} sel={sel} onSelect={(n) => setSel((s) => (s === n ? null : n))} />
       </main>
 
       {showData && (
