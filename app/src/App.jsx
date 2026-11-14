@@ -15,9 +15,9 @@ import { loadCuriosity, compareRoutes, cutAtSol, solDate } from './lib/curiosity
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
 // 'Sol' queda en 0: no aporta seguridad (no modelamos calor/energía) y la sombra sigue disponible como capa.
-const W = { effort: 1, rad: 2, rough: 1, comm: 1, shade: 0, sand: 1 }
-// Modo comparación con Curiosity: solo relieve (esfuerzo por subidas/bajadas + pendiente lateral, y el bloqueo por pendiente > 20°).
-const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, shade: 0, sand: 0 }
+const W = { effort: 1, rad: 2, rough: 1, comm: 1, sand: 1 }
+// Modo comparación con Curiosity: solo relieve (esfuerzo por subidas/bajadas y el bloqueo por pendiente > 20°).
+const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, sand: 0 }
 const LAYERS = [
   ['none', 'Ninguna'],
   ['rad', 'Radiación (rojo = más dosis)'],
@@ -60,8 +60,8 @@ export default function App() {
   useEffect(() => { setStart(null); setEnd(null) }, [baseDem])
   useEffect(() => { if (bench && !curiosity) loadCuriosity().then(setCuriosity).catch((e) => setError(e.message)) }, [bench, curiosity])
 
-  // sombras: dependen de la estación y la hora
-  const shade = useMemo(() => (baseDem ? shadeMap(baseDem, ls, hour) : null), [baseDem, ls, hour])
+  // sombras: solo se calculan si se mira esa capa (no entran en la ruta); dependen de la estación y la hora
+  const shade = useMemo(() => (baseDem && layer === 'shade' ? shadeMap(baseDem, ls, hour) : null), [baseDem, layer, ls, hour])
   // radiación: depende de la actividad solar y de la presión real (MCD) de la estación/hora
   const dem = useMemo(() => {
     if (!baseDem) return null
@@ -125,14 +125,11 @@ export default function App() {
     const { cells } = route
     const speed = CONST.WALK_KMH * 1000 // m/h
     const idx = (c) => c[1] * dem.w + c[0]
-    let seg = 0, eff = 0, dose = 0, sun = 0, vis = 0, rough = 0, nRough = 0, maxSlope = 0, minE = Infinity, maxE = -Infinity, maxExc = 0
+    let seg = 0, eff = 0, dose = 0, vis = 0, minE = Infinity, maxE = -Infinity, maxExc = 0
     cells.forEach((c, k) => {
       const i = idx(c)
-      maxSlope = Math.max(maxSlope, dem.slope[i])
       minE = Math.min(minE, dem.elev[i]); maxE = Math.max(maxE, dem.elev[i])
-      if (dem.shade[i] === 0) sun++
       if (dem.visible[i]) vis++
-      if (Number.isFinite(dem.rough[i])) { rough += dem.rough[i]; nRough++ }
       if (dem.baseCell) maxExc = Math.max(maxExc, Math.hypot(c[0] - dem.baseCell[0], c[1] - dem.baseCell[1]) * dem.cellM)
       if (k) {
         const p = cells[k - 1]
@@ -155,8 +152,7 @@ export default function App() {
     }
     return {
       km: route.distanceKm, timeH, doseMsv: dose, effortRel: seg ? eff / seg : 1,
-      sunPct: (100 * sun) / cells.length, visPct: (100 * vis) / cells.length, rough: nRough ? rough / nRough : NaN,
-      maxSlope, min: Math.round(minE), max: Math.round(maxE), maxExcKm: maxExc / 1000, tMin, tMax,
+      visPct: (100 * vis) / cells.length, min: Math.round(minE), max: Math.round(maxE), maxExcKm: maxExc / 1000, tMin, tMax,
     }
   }, [route, dem, temp, ls, hour])
 
@@ -257,7 +253,7 @@ export default function App() {
           </label>
           {bench && (
             <div className="mt-3 space-y-3 text-xs text-slate-400">
-              <p>Nuestra ruta usa <b className="text-slate-200">solo el relieve</b> (subidas, pendiente lateral y el límite de {CONST.MAX_SLOPE_DEG}°). El recorrido de Curiosity solo se dibuja: no influye en nuestra ruta.</p>
+              <p>Nuestra ruta usa <b className="text-slate-200">solo el relieve</b> (subidas y el límite de {CONST.MAX_SLOPE_DEG}°). El recorrido de Curiosity solo se dibuja: no influye en nuestra ruta.</p>
               {curCut && solSel !== null && (
                 <label className="block">
                   <div className="flex items-baseline justify-between"><span>Curiosity hasta el sol <b className="text-fuchsia-300">{solSel}</b></span><span>{solDate(solSel).toLocaleDateString('es', { year: 'numeric', month: 'short' })} · {curCut.km.toFixed(1)} km</span></div>

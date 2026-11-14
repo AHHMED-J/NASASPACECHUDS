@@ -29,7 +29,6 @@ const REF = {
   doseEq: 0.67, // mSv/día = 220 uGy/día × <Q> 3.05
 }
 const SLOPE_PHI500 = 0.126 / 250 // mSv/día por Pa, de HZETRN2015 a Φ=500 MV (126 uSv/día en 250 Pa)
-export const RAD_REF_TEXT = '≈0.67 mSv/día (220 µGy/día × Q≈3.05)'
 
 export const SOLAR = {
   min: { label: 'Mínimo solar (Φ≈200 MV)', phi: 200 },

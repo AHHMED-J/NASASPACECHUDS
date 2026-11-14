@@ -1,6 +1,6 @@
 import { Line } from 'react-chartjs-2'
 import { Chart, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend } from 'chart.js'
-import { kToC, SEASONS } from '../lib/temperature'
+import { kToC } from '../lib/temperature'
 
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend)
 

@@ -31,11 +31,11 @@ for (let i = 0; i < elev.length; i++) elev[i] = raw[i] === nodata ? NaN : raw[i]
 const rough = new Float32Array(w * h).fill(NaN)
 for (let y = 1; y < h - 1; y++)
   for (let x = 1; x < w - 1; x++) {
-    let n = 0, sz = 0, sx = 0, sy = 0, sxz = 0, syz = 0, szz = 0
+    let n = 0, sz = 0, sx = 0, sy = 0
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const z = elev[(y + dy) * w + x + dx]
       if (Number.isNaN(z)) { n = -1; break }
-      n++; sz += z; sx += dx * z; sy += dy * z; szz += z * z
+      n++; sz += z; sx += dx * z; sy += dy * z
     }
     if (n !== 9) continue
     // plano z = a + b·dx + c·dy en malla simétrica: b = Σdx·z/6, c = Σdy·z/6

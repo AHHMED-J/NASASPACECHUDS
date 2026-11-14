@@ -17,7 +17,7 @@ const deg = (rad) => (rad * 180) / Math.PI
 
 const tiff = await fromUrl(URL_DEM)
 const img = await tiff.getImage()
-const [xmin, ymin, xmax, ymax] = img.getBoundingBox()
+const [xmin, , , ymax] = img.getBoundingBox()
 const W = img.getWidth(), H = img.getHeight()
 const nodata = img.getGDALNoData()
 const w = Math.floor(W / CELL_M), h = Math.floor(H / CELL_M)

@@ -17,17 +17,6 @@ function projector(lat0) {
 	return ([lon, lat]) => [lon * kx, lat * M_PER_DEG];
 }
 
-export function lengthKm(coords) {
-	const P = projector(coords[0][1]);
-	let d = 0;
-	for (let i = 1; i < coords.length; i++) {
-		const a = P(coords[i - 1]),
-			b = P(coords[i]);
-		d += Math.hypot(b[0] - a[0], b[1] - a[1]);
-	}
-	return d / 1000;
-}
-
 function distToPolyline(p, poly) {
 	let best = Infinity;
 	for (let i = 1; i < poly.length; i++) {

@@ -9,12 +9,10 @@ export const REASONS = {
   height: { icon: '▲', label: 'Altura máxima', color: '#f97316' },
   nodata: { icon: '?', label: 'Sin datos', color: '#94a3b8' },
   effort: { icon: '↗', label: 'Subida', color: '#f59e0b' },
-  cross: { icon: '⟋', label: 'Ladera lateral', color: '#eab308' },
   sand: { icon: '≈', label: 'Arena', color: '#d97706' },
   rad: { icon: '☢', label: 'Radiación', color: '#a855f7' },
   comm: { icon: '📡', label: 'Comunicación', color: '#3b82f6' },
   rough: { icon: '▦', label: 'Terreno rugoso', color: '#14b8a6' },
-  shade: { icon: '◐', label: 'Sombra', color: '#64748b' },
 }
 
 // Celdas de una línea recta entre dos celdas (Bresenham, 8-conectada)
@@ -59,7 +57,7 @@ function turns(cells, tol) {
   return idx
 }
 
-const ZERO = () => ({ dist: 0, rad: 0, rough: 0, comm: 0, shade: 0, sand: 0, effort: 0, cross: 0 })
+const ZERO = () => ({ dist: 0, rad: 0, rough: 0, comm: 0, sand: 0, effort: 0 })
 
 // Recorre una lista de celdas y suma costos por componente + datos físicos para las frases
 function evaluate(dem, cells, w, filter) {
@@ -119,19 +117,17 @@ export function explainRoute(dem, route, w, filter) {
           : `Gira a la ${side}: ir derecho pasa por una zona sin datos de relieve.`
     } else {
       // diferencia por componente (atajo − real): la mayor positiva es la causa
-      const keys = ['effort', 'cross', 'sand', 'rad', 'comm', 'rough', 'shade']
+      const keys = ['effort', 'sand', 'rad', 'comm', 'rough']
       const diffs = keys.map((key) => [key, S.sum[key] - A.sum[key]]).sort((p, q) => q[1] - p[1])
       if (!(S.total > A.total) || diffs[0][1] <= 0) continue // giro sin motivo claro (efecto de la cuadrícula)
       reason = diffs[0][0]
       const gain = (100 * (S.total - A.total)) / S.total
       const why = {
         effort: `ir derecho sube ${Math.round(S.climb - A.climb)} m más; el desvío es más llano`,
-        cross: `ir derecho cruza una ladera muy inclinada de lado (hasta ${S.maxSlope.toFixed(0)}°)`,
         sand: `ir derecho cruza ${fmtM(S.sandM - A.sandM)} más de arena oscura (dunas)`,
         rad: 'ir derecho pasa por terreno más alto, con más radiación',
         comm: `ir derecho pierde la línea de vista con la base durante ${fmtM(S.noCommM - A.noCommM)} más`,
         rough: 'ir derecho cruza terreno más rugoso',
-        shade: 'ir derecho pasa más tiempo a la sombra',
       }[reason]
       const add = extra < 25 ? 'casi sin alargar el camino' : `añade ${fmtM(extra)} de camino`
       text = `Gira a la ${side}: ${why}. El desvío ${add} y cuesta ${gain.toFixed(0)}% menos.`

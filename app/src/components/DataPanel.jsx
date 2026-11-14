@@ -27,7 +27,7 @@ export default function DataPanel({ onClose, state }) {
         <button className="absolute right-4 top-4 rounded border border-cyan-800 px-3 py-1 text-xs hover:bg-cyan-900/40" onClick={onClose}>Cerrar ✕</button>
         <h2 className="text-lg font-bold text-cyan-300">Datos que se toman en cuenta para la ruta</h2>
         <p className="mt-1 text-xs text-slate-400">
-          Costo de cada paso = distancia × (1 + preferencias de la celda + esfuerzo del gradiente + pendiente lateral). A* busca el camino de menor costo total.
+          Costo de cada paso = distancia × (1 + preferencias de la celda + esfuerzo del gradiente). A* busca el camino de menor costo total.
           Cada dato indica si es medición, modelo o supuesto.
         </p>
 
@@ -38,7 +38,7 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Actividad solar" kind="modelo">{SOLAR[solar].label}. Cambia cuánto protege la atmósfera de la radiación.</Row>
           <Row title="Altura máxima" kind="info">{maxElev} m. Filtro de misión: bloquea todo lo más alto. No es un límite físico; la altura ya pesa vía la radiación.</Row>
           <Row title="Prioridades" kind="info">
-            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · sol {w.shade} (sin efecto en la ruta).
+            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm}.
             Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación) <b>no es una magnitud física</b>.
           </Row>
           <Row title="Inicio y destino" kind="info">Los dos puntos que marcas con clic en el mapa.</Row>
@@ -68,7 +68,6 @@ export default function DataPanel({ onClose, state }) {
             Mars Climate Database v6 (LMD), escenario de polvo promedio, centro de la zona. Ahora: superficie {row ? (row.surf - 273.15).toFixed(0) : '–'} °C, aire {row ? (row.air - 273.15).toFixed(0) : '–'} °C, presión {row ? row.pres.toFixed(0) : '–'} Pa.
             Es un modelo climático, no una medición.
           </Row>
-          <Row title="Mapa base (ortofoto HiRISE)" kind="info">Foto de NASA Trek (~0.6 m/px, escala de grises). Solo para mirar: la ruta no la usa.</Row>
         </ul>
 
         <H>4 · Modelos y cálculos</H>
@@ -81,11 +80,8 @@ export default function DataPanel({ onClose, state }) {
             Polinomio de Minetti et al. (2002) del costo metabólico al caminar según el gradiente. Coeficientes coherentes con valores publicados, pero no verificados contra el texto del artículo.
             Medido en la Tierra (1 g) y sin traje: en Marte (0.38 g) cambia.
           </Row>
-          <Row title="Pendiente lateral" kind="supuesto">
-            Componente de la pendiente perpendicular al movimiento, penalizada con (lateral / pendiente máx.)². La forma de la penalización es nuestra; solo usa el límite de {CONST.MAX_SLOPE_DEG}° como referencia.
-          </Row>
-          <Row title="Sombras" kind="modelo">
-            Posición del Sol (geometría con la oblicuidad de Marte, latitud, estación y hora) y sombras del propio terreno desde el DEM. Es geometría, pero no calculamos cuánto enfría la sombra.
+          <Row title="Capa de sombras (solo visual)" kind="modelo">
+            Posición del Sol (oblicuidad de Marte, latitud, estación y hora) y sombras del terreno desde el DEM. No influye en la ruta.
           </Row>
           <Row title="Arena oscura (dunas)" kind="supuesto">
             Estimada, no medida: celdas oscuras en la ortofoto HiRISE de Trek (~10 m/px, 6 % más oscuro de la escena) y lisas en el DEM de 1 m. Marca bien la franja de dunas Bagnold, pero solo existe en la zona de la ortofoto (alrededor de Curiosity) y puede confundir roca oscura o sombras con arena.
@@ -107,7 +103,7 @@ export default function DataPanel({ onClose, state }) {
             <H>5 · Resultado de la ruta actual</H>
             <p className="text-sm text-slate-300">
               {stats.km.toFixed(1)} km · {stats.timeH.toFixed(1)} h a pie · dosis {stats.doseMsv.toFixed(3)} mSv ({((100 * stats.doseMsv) / CONST.DOSE_LIMIT_MSV).toFixed(2)}% del límite de carrera)
-              · esfuerzo {stats.effortRel.toFixed(2)}× el de terreno plano · {stats.sunPct.toFixed(0)}% al sol · {stats.visPct.toFixed(0)}% con comunicación · alejamiento máx. {stats.maxExcKm.toFixed(1)} km de la base.
+              · esfuerzo {stats.effortRel.toFixed(2)}× el de terreno plano · {stats.visPct.toFixed(0)}% con comunicación · alejamiento máx. {stats.maxExcKm.toFixed(1)} km de la base.
             </p>
           </>
         )}

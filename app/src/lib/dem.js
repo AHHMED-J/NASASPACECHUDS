@@ -2,8 +2,6 @@
 import { simulate } from './radiation.js'
 import { viewshed } from './comm.js'
 
-const M_PER_DEG = (2 * Math.PI * 3396190) / 360 // metros por grado en Marte (ecuador)
-
 // Mapa de arena (malla de 50 m de la zona de Curiosity), compartido por ambos DEM
 let sandGrid = null
 async function loadSand(base) {
@@ -64,8 +62,6 @@ export function buildDem(meta, elev, rough, sand = null) {
 
   // Pendiente (grados) por diferencias centrales; NaN si falta algún dato vecino (queda bloqueada)
   const slope = new Float32Array(w * h)
-  const gx = new Float32Array(w * h) // gradiente este (m/m)
-  const gy = new Float32Array(w * h) // gradiente hacia el sur (m/m); +y de la malla = sur
   for (let y = 0; y < h; y++) {
     const lat = latMax - (y + 0.5) * dLat
     const cx = cellM * Math.cos((lat * Math.PI) / 180) // equirectangular: columnas se acercan con la latitud
@@ -73,8 +69,6 @@ export function buildDem(meta, elev, rough, sand = null) {
       const dzdx = (at(x + 1, y) - at(x - 1, y)) / (2 * cx)
       const dzdy = (at(x, y + 1) - at(x, y - 1)) / (2 * cellM)
       slope[y * w + x] = (Math.atan(Math.hypot(dzdx, dzdy)) * 180) / Math.PI
-      gx[y * w + x] = dzdx
-      gy[y * w + x] = dzdy
     }
   }
 
@@ -85,7 +79,7 @@ export function buildDem(meta, elev, rough, sand = null) {
   const roughP95 = valid.length ? valid[Math.floor(valid.length * 0.95)] : 1
   const roughRisk = Float32Array.from(rough, (v) => (Number.isFinite(v) ? Math.min(1, v / roughP95) : 0))
 
-  const out = { ...meta, elev, w, h, n: w * h, cellM, lonMin, latMin, lonMax, latMax, dLon, dLat, lonLat, cellOf, slope, gx, gy, rough, roughRisk, roughP95, mPerDeg: M_PER_DEG }
+  const out = { ...meta, elev, w, h, n: w * h, cellM, lonMin, latMin, lonMax, latMax, dLon, dLat, lonLat, cellOf, slope, rough, roughRisk }
   const { visible, baseCell } = viewshed(out)
   const commRisk = Float32Array.from(visible, (v, i) => (Number.isNaN(elev[i]) ? NaN : v ? 0 : 1)) // 1 = sin línea de vista
   const sandRisk = sampleSand(out, sand) // fracción de arena oscura 0..1 (NaN fuera de la ortofoto)
