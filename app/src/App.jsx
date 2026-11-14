@@ -4,7 +4,7 @@ import ElevationProfile from './components/ElevationProfile'
 import TemperatureCard from './components/TemperatureCard'
 import DataPanel from './components/DataPanel'
 import { loadDem } from './lib/dem'
-import { radiationFor, SOLAR, RAD_REF_TEXT } from './lib/radiation'
+import { radiationFor, SOLAR } from './lib/radiation'
 import { loadTemp } from './lib/temperature'
 import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
@@ -22,8 +22,8 @@ const LAYERS = [
   ['shade', 'Sombra (rojo = en sombra)'],
 ]
 
-const Select = (props) => <select {...props} className="mt-1 w-full rounded border border-cyan-900 bg-[#0b1322] p-1 text-sm" />
-const Title = ({ children }) => <h2 className="text-xs uppercase tracking-widest text-slate-500">{children}</h2>
+const Select = (props) => <select {...props} className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm" />
+const Title = ({ children }) => <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 
 export default function App() {
   const [baseDem, setDem] = useState(null)
@@ -143,77 +143,73 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto border-b border-cyan-900/50 bg-[#070c16] p-4 md:w-80 md:border-b-0 md:border-r">
-        <header>
-          <h1 className="text-lg font-bold tracking-wide text-cyan-300">MARS ROUTE · Gale</h1>
-          <p className="text-xs text-slate-400">Prototipo de HUD de navegación EVA</p>
-          <button className="mt-2 w-full rounded border border-cyan-700 bg-cyan-900/30 px-3 py-1.5 text-sm font-bold text-cyan-200 hover:bg-cyan-800/50" onClick={() => setShowData(true)}>
-            Ver todos los datos considerados
-          </button>
+      <aside className="flex w-full shrink-0 flex-col gap-6 overflow-y-auto border-b border-white/10 bg-[#0a0f1a] p-5 md:w-80 md:border-b-0 md:border-r">
+        <header className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-base font-semibold text-cyan-300">Mars Route</h1>
+            <p className="text-xs text-slate-500">Gale · navegación EVA</p>
+          </div>
+          <button className="rounded-md border border-white/15 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => setShowData(true)}>Datos considerados</button>
         </header>
 
-        <section className="space-y-3">
+        <section>
           <Title>Escenario</Title>
-          <label className="block text-sm">Actividad solar
-            <Select value={solar} onChange={(e) => setSolar(e.target.value)}>
-              {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </Select>
-          </label>
-          <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
+          <div className="space-y-4">
+            <TemperatureCard temp={temp} ls={ls} setLs={setLs} hour={hour} setHour={setHour} />
+            <label className="block text-sm"><span className="text-slate-400">Actividad solar</span>
+              <Select value={solar} onChange={(e) => setSolar(e.target.value)}>
+                {Object.entries(SOLAR).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </Select>
+            </label>
+          </div>
         </section>
 
-        <section className="space-y-3">
-          <Title>Filtros de la ruta</Title>
-          <label className="block text-sm">
-            Altura máxima: <b className="text-cyan-300">{maxElev} m</b>
-            <input type="range" className="w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
-          </label>
-        </section>
-
-        <section className="space-y-2">
-          <Title>Mapa</Title>
-          <label className="block text-sm">Mapa base
-            <Select value={basemap} onChange={(e) => setBasemap(e.target.value)}>
-              <option value="ortho">Ortofoto HiRISE (Trek)</option>
-              <option value="relief">Relieve del DEM (50 m)</option>
-              <option value="trek">NASA Trek (MOLA 463 m)</option>
-            </Select>
-          </label>
-          <label className="block text-sm">Capa
-            <Select value={layer} onChange={(e) => setLayer(e.target.value)}>
-              {LAYERS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-            </Select>
-          </label>
-          <p className="text-[11px] text-slate-500"><span className="text-red-300/80">■ Rojo</span> = bloqueado (muy alto o más de {CONST.MAX_SLOPE_DEG}° de pendiente) · <span className="text-slate-400">■ Gris</span> = sin dato · <span className="text-sky-300">▲</span> base</p>
-        </section>
-
-        <section className="text-sm">
+        <section>
           <Title>Ruta</Title>
-          <p className="my-2 text-slate-400">Mantén el clic en el <b className="text-green-400">inicio</b>, arrastra y suelta en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
-          {noRoute && <p className="text-red-400">{blockedEnd ? 'El inicio o el destino cae en una zona bloqueada. Elige puntos fuera del rojo o sube la altura máxima.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
+          <label className="mb-4 block text-sm">
+            <div className="flex items-baseline justify-between"><span className="text-slate-400">Altura máxima</span><b className="text-base text-cyan-300">{maxElev} m</b></div>
+            <input type="range" className="mt-1 w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
+          </label>
+          <p className="text-sm text-slate-400">Arrastra en el mapa del <b className="text-green-400">inicio</b> al <b className="text-amber-400">destino</b>. <span className="text-slate-500">Shift+arrastrar mueve el mapa.</span></p>
+          {noRoute && <p className="mt-2 text-sm text-red-400">{blockedEnd ? 'El inicio o el destino cae en zona bloqueada.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
           {stats && (
-            <>
-              {stats.tMin !== null && <p className="mt-2 text-[11px] text-slate-400">Superficie durante la salida: {(stats.tMin - 273.15).toFixed(0)} a {(stats.tMax - 273.15).toFixed(0)} °C (rango del traje, lunar: {CONST.SUIT_EXT_K[0] - 273}…{CONST.SUIT_EXT_K[1] - 273} °C).</p>}
-              {warnings.map((m) => <p key={m} className="mt-1 text-[12px] text-amber-300">⚠ {m}</p>)}
-            </>
+            <div className="mt-3 space-y-1.5">
+              {stats.tMin !== null && <p className="text-xs text-slate-400">Superficie durante la salida: {(stats.tMin - 273.15).toFixed(0)} a {(stats.tMax - 273.15).toFixed(0)} °C</p>}
+              {warnings.map((m) => <p key={m} className="rounded-md bg-amber-400/10 px-2.5 py-1.5 text-xs text-amber-300">{m}</p>)}
+            </div>
           )}
-          {(start || end) && <button className="mt-3 rounded border border-cyan-800 px-3 py-1 text-xs hover:bg-cyan-900/40" onClick={() => { setStart(null); setEnd(null) }}>Reiniciar</button>}
+          {(start || end) && <button className="mt-3 rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => { setStart(null); setEnd(null) }}>Reiniciar</button>}
         </section>
 
         <section className="shrink-0">
           <Title>Perfil de elevación</Title>
-          <div className="mt-2 h-40 md:h-48">{dem && <ElevationProfile dem={dem} route={route} />}</div>
+          <div className="h-40">{dem && <ElevationProfile dem={dem} route={route} />}</div>
         </section>
 
-        <p className="shrink-0 text-[10px] leading-snug text-slate-500">
-          Radiación: modelo anclado en datos de MSL/RAD ({RAD_REF_TEXT}). Temperatura y presión: Mars Climate Database (LMD). Elevación: DEM MOLA/HRSC/HiRISE de USGS. Mapa: NASA Trek. Detalle y fuentes en "Ver todos los datos considerados".
-        </p>
+        <details className="shrink-0 text-sm">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">Mapa</summary>
+          <div className="mt-3 space-y-3">
+            <label className="block"><span className="text-slate-400">Mapa base</span>
+              <Select value={basemap} onChange={(e) => setBasemap(e.target.value)}>
+                <option value="ortho">Ortofoto HiRISE</option>
+                <option value="relief">Relieve del DEM</option>
+                <option value="trek">NASA Trek (MOLA)</option>
+              </Select>
+            </label>
+            <label className="block"><span className="text-slate-400">Capa</span>
+              <Select value={layer} onChange={(e) => setLayer(e.target.value)}>
+                {LAYERS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </Select>
+            </label>
+            <p className="text-[11px] text-slate-500"><span className="text-red-300/80">■</span> bloqueado (muy alto o &gt;{CONST.MAX_SLOPE_DEG}°) · <span className="text-slate-400">■</span> sin dato · <span className="text-sky-300">▲</span> base</p>
+          </div>
+        </details>
       </aside>
 
       <main className="relative min-h-0 flex-1">
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
         {stats && (
-          <dl className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-x-4 rounded border border-cyan-900/60 bg-[#070c16]/90 px-3 py-2 backdrop-blur">
+          <dl className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-x-4 rounded-lg border border-white/10 bg-[#0a0f1a]/90 px-3 py-2 backdrop-blur">
             {[
               ['Distancia', `${stats.km.toFixed(1)} km`],
               ['Tiempo a pie', `${stats.timeH.toFixed(1)} h`],
