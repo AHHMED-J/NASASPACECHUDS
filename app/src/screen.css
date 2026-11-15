@@ -379,3 +379,6 @@
   background: #19375e; border-color: #8da8cc; transform: none;
 }
 .screen-app .admin-sidebar .admin-heading button { border: none; background: transparent; box-shadow: none; }
+
+/* Solid black read-only distance/time summary. */
+.screen-app .screen-footer .route-summary, .screen-app .screen-footer .route-summary:hover { background: #000000; }
