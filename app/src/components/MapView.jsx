@@ -17,7 +17,8 @@ import TileGrid from 'ol/tilegrid/TileGrid'
 import Feature from 'ol/Feature'
 import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point'
-import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape, Text } from 'ol/style'
+import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape, Text, Icon } from 'ol/style'
+import astronautUrl from '../assets/astronaut.png'
 import { isBlocked } from '../lib/route'
 import { REASONS } from '../lib/explain'
 import 'ol/ol.css'
@@ -107,6 +108,11 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
+const astronautStartStyle = new Style({
+  zIndex: 30,
+  image: new Icon({ src: astronautUrl, anchor: [0.5, 1], width: 80, height: 80, interpolate: false }),
+})
+
 function routeFeatureStyle(f) {
             const k = f.get('kind')
             if (k === 'line') return [
@@ -129,7 +135,8 @@ function routeFeatureStyle(f) {
             ]
             if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
             if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
-            return pt(k === 'start' ? '#315b9a' : '#dce7f6')
+            if (k === 'start') return astronautStartStyle
+            return pt('#dce7f6')
 }
 
 export default function MapView({ centerRequest, dem, layer, basemap, filter, route, start, end, onPick, why, sel, onSelect }) {
