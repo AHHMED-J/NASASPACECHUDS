@@ -2,9 +2,13 @@
 
 Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba.
 
+Cada entrada indica qué agente hizo el cambio. Los cambios de hoy los hizo **Claude** (Anthropic): Opus 5.5 hasta la entrada de las 14:59 y Sonnet 5.5 después.
+
 ---
 
 ## 2026-11-14 14:59 — Todos los factores normalizados de 0 a 1
+
+**Agente:** Claude
 
 **Antes:** cada factor tenía una escala inventada por nosotros (radiación ×8, dunas ×6, rugosidad ×4, comunicación ×2). El esfuerzo iba de 0 a ~5.
 
@@ -30,11 +34,15 @@ Sin dunas casi no cambia (solo cuenta el relieve).
 
 ## 2026-11-14 14:55 — Corregidos 2 errores en las distancias de Curiosity
 
+**Agente:** Claude
+
 En los datos de la NASA, dos soles tenían la distancia mal (**sol 1257 = 0 km** y **sol 3708 = 39.37 km**). Al cortar el recorrido en esos soles, la ruta de Curiosity salía vacía o completa. Ahora esos dos valores se descartan (`fetch-curiosity.mjs` y `curiosity-traverse.json`).
 
 ---
 
 ## 2026-11-14 14:27 — La arena ahora viene del USGS (base de datos global de dunas)
+
+**Agente:** Claude
 
 **Antes:** la arena era **estimada por nosotros** (zonas oscuras y lisas en la foto HiRISE). Solo cubría la zona de Curiosity.
 
@@ -63,6 +71,8 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 
 ## 2026-11-14 14:20 — Prueba: ¿THEMIS de noche sirve para detectar arena? → No (sin cambios en la página)
 
+**Agente:** Claude
+
 **Qué probamos:** el mosaico THEMIS-IR de noche (USGS, 100 m) en todo Gale, comparado con las dunas Bagnold que ya conocemos.
 
 **Idea:** de noche la arena suelta se enfría más rápido que la roca → debería verse más **oscura**.
@@ -80,6 +90,8 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 ---
 
 ## 2026-11-14 14:12 — ¿Por qué la ruta ahora se va por el otro lado?
+
+**Agente:** Claude
 
 **Qué se ve:** en la comparación con Curiosity, nuestra ruta (cian) ahora se va por el **lado este** de la línea recta, y Curiosity (rosa) por el **oeste**. Antes nuestra ruta también se iba por el oeste, cerca de Curiosity.
 
@@ -112,6 +124,8 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 
 ## 2026-11-14 13:33 — Limpieza de código (`e6113f2`)
 
+**Agente:** Claude
+
 - Quitada la **ortofoto** de la página.
 - Quitada la **ladera de lado** (era un supuesto).
 - La **sombra** ya no cuenta en la ruta; solo es una capa visual y se calcula solo si la miras.
@@ -119,11 +133,15 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 
 ## 2026-11-14 13:13 — Explicación de los giros (`ef3df2b`)
 
+**Agente:** Claude
+
 - Ahora es **clic en inicio + clic en destino** (antes: arrastrar).
 - Cada giro tiene un **número** y una **frase** que dice por qué (pendiente, subida, arena…).
 - Al tocar un número se ve en rojo el **camino recto que se descartó**.
 
 ## 2026-11-14 12:56 — Mejoras a la comparación con Curiosity (`3acafd5`)
+
+**Agente:** Claude
 
 - **Corte por sol:** comparar solo hasta cierto día de la misión.
 - **DEM de 50 m** en la zona de Curiosity (más detalle).
@@ -131,28 +149,40 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 
 ## 2026-11-14 12:33 — Comparación con Curiosity (`fa1fcec`)
 
+**Agente:** Claude
+
 - Casilla para ver el **recorrido real de Curiosity** (datos NASA/JPL).
 - En ese modo nuestra ruta usa **solo el relieve**.
 - Métricas: qué tan lejos queda nuestra ruta de la de Curiosity.
 
 ## 2026-11-14 12:22 — Opciones al final (`97bfc85`)
 
+**Agente:** Claude
+
 - Estación y actividad solar movidas a un desplegable **"Opciones"** al final.
 
 ## 2026-11-14 12:20 — Mapa parejo (`94d88de`)
 
+**Agente:** Claude
+
 - El mapa base por defecto es el **relieve** (la ortofoto solo cubría una parte).
 
 ## 2026-11-14 12:17 — Cráter completo (`b18da8e`)
+
+**Agente:** Claude
 
 - El mapa ahora cubre **todo el cráter Gale** (DEM de 200 m).
 - La línea de vista con la base ya considera la **curvatura de Marte**.
 
 ## 2026-11-14 12:09 — Barra lateral más limpia (`8e9f071`)
 
+**Agente:** Claude
+
 - Letra más legible, secciones agrupadas, mapa y curva de temperatura plegables.
 
 ## 2026-11-14 12:00 — Interfaz más simple (`a438e22`)
+
+**Agente:** Claude
 
 - Pesos de la ruta **fijos** (sin sliders).
 - Distancia, tiempo y elevación en una tarjeta **arriba a la derecha** del mapa.
