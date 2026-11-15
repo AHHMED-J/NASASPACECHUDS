@@ -6,6 +6,17 @@ Cada entrada indica qué agente hizo el cambio. Los cambios de hoy los hizo **Cl
 
 ---
 
+## 2026-11-14 17:09 — Documentos del proyecto
+
+**Agente:** Claude
+
+Tres archivos nuevos en `Agents/`:
+- `ARQUITECTURA.md`: cómo está armado el proyecto (carpetas, datos, scripts, código y cálculo de la ruta).
+- `FEATURES_DISPONIBLES.md`: lo que ya funciona hoy.
+- `featuresImplementar.md`: lo que falta por hacer (vacío por ahora).
+
+---
+
 ## 2026-11-14 14:59 — Todos los factores normalizados de 0 a 1
 
 **Agente:** Claude
