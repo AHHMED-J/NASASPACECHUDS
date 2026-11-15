@@ -32,7 +32,7 @@ export default function TemperatureCard({ temp, ls, hour, setHour }) {
         <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-200">24-hour temperature curve</summary>
         <div className="mt-2 h-32">
           <Line
-            data={{ labels: hours.map((h) => `${h}h`), datasets: [line('surf', '#f59e0b'), line('air', '#22d3ee')] }}
+            data={{ labels: hours.map((h) => `${h}h`), datasets: [line('surf', '#f59e0b'), line('air', '#315b9a')] }}
             options={{
               animation: false, maintainAspectRatio: false,
               plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } } },

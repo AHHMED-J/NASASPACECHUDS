@@ -107,6 +107,31 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
+function routeFeatureStyle(f) {
+            const k = f.get('kind')
+            if (k === 'line') return [
+              new Style({ zIndex: 1, stroke: new Stroke({ color: 'rgba(4,12,25,.35)', width: 11, lineCap: 'round', lineJoin: 'round' }) }),
+              new Style({ zIndex: 2, stroke: new Stroke({ color: '#e7eef8', width: 8, lineCap: 'round', lineJoin: 'round' }) }),
+              new Style({ zIndex: 3, stroke: new Stroke({ color: '#315b9a', width: 4.5, lineCap: 'round', lineJoin: 'round' }) }),
+            ]
+            if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
+            if (k === 'why') {
+              const on = f.get('selected')
+              return new Style({
+                zIndex: on ? 20 : 10,
+                image: new CircleStyle({ radius: on ? 22.75 : 17.5, fill: new Fill({ color: '#142f57' }), stroke: new Stroke({ color: on ? '#ffffff' : '#dce7f6', width: on ? 4 : 2.5 }) }),
+                text: new Text({ text: String(f.get('n')), font: 'bold 19px Inter, sans-serif', fill: new Fill({ color: '#fff' }) }),
+              })
+            }
+            if (k === 'alt') return [
+              new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
+              new Style({ stroke: new Stroke({ color: '#ff8a4c', width: 3, lineDash: [8, 6] }) }),
+            ]
+            if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
+            if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
+            return pt(k === 'start' ? '#315b9a' : '#dce7f6')
+}
+
 export default function MapView({ centerRequest, dem, layer, basemap, filter, route, start, end, onPick, why, sel, onSelect }) {
   const el = useRef(null)
   const warningEl = useRef(null)
@@ -141,26 +166,7 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
         maskLayer,
         new VectorLayer({
           source: route,
-          style: (f) => {
-            const k = f.get('kind')
-            if (k === 'line') return new Style({ stroke: new Stroke({ color: '#46F0D2', width: 4 }) })
-            if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
-            if (k === 'why') {
-              const on = f.get('selected')
-              return new Style({
-                zIndex: on ? 20 : 10,
-                image: new CircleStyle({ radius: on ? 13 : 10, fill: new Fill({ color: f.get('color') }), stroke: new Stroke({ color: on ? '#fff' : '#0f172a', width: on ? 3 : 2 }) }),
-                text: new Text({ text: String(f.get('n')), font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }) }),
-              })
-            }
-            if (k === 'alt') return [
-              new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
-              new Style({ stroke: new Stroke({ color: '#ff8a4c', width: 3, lineDash: [8, 6] }) }),
-            ]
-            if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
-            if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
-            return pt(k === 'start' ? '#46F0D2' : '#FBE2B4')
-          },
+          style: routeFeatureStyle,
         }),
       ],
       view: new View({ projection: MARS, enableRotation: false, center: [137.4, -4.6], resolution: 0.0012, minResolution: 360 / 512 / 2 ** 16 }),
@@ -185,13 +191,17 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
     ] }))
     const warningOverlay = new Overlay({ element: warningEl.current, positioning: 'top-left', offset: [18, 18], stopEvent: true, autoPan: { margin: 24, animation: { duration: 180 } } })
     map.addOverlay(warningOverlay)
-    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, curSrc, warningOverlay }
+    const routeLayer = map.getLayers().getArray().find(layer => layer.getSource() === route)
+    ref.current = { routeLayer, map, route, maskLayer, heatLayer, reliefLayer, curSrc, warningOverlay }
     return () => {
       resizeObserver.disconnect()
       map.un('click', click)
       map.setTarget(undefined)
     }
   }, [])
+
+  // Reapply current visual styles to an existing map after React hot updates.
+  useEffect(() => { ref.current.routeLayer?.setStyle(routeFeatureStyle) })
 
   // máscara de filtro
   useEffect(() => {
@@ -275,7 +285,7 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
     if (start) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...start)), kind: 'start' }))
     if (end) src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...end)), kind: 'end' }))
     for (const x of why?.items ?? [])
-      src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...x.at)), kind: 'why', n: x.n, color: REASONS[x.reason].color, selected: x.n === sel }))
+      src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...x.at)), kind: 'why', n: x.n, color: '#142f57', selected: x.n === sel }))
   }, [dem, route, start, end, why, sel])
 
 

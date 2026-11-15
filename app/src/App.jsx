@@ -241,7 +241,7 @@ export default function App() {
       </aside>
 
       <aside className="admin-sidebar" id="admin-sidebar" aria-label="Map controls and admin">
-        <div className="sidebar-actions"><button type="button" className="screen-admin" aria-expanded={adminOpen} aria-controls="admin-content" onClick={() => setAdminOpen(value => !value)}>Admin</button></div>
+        <div className="sidebar-actions"><button type="button" className="screen-admin" aria-expanded={adminOpen} aria-controls="admin-content" onClick={() => setAdminOpen(value => !value)}>Admin</button><button type="button" className="screen-center" disabled={!dem} onClick={() => setCenterRequest(value => value + 1)}>Center</button></div>
         {adminOpen && <div id="admin-content">
         <header className="admin-heading"><h2 id="admin-title">Admin</h2><button type="button" aria-label="Close admin sidebar" onClick={() => setAdminOpen(false)}>×</button></header>
         <section><h3>Terrain</h3><label>Maximum elevation <strong>{maxElev} m</strong><input type="range" disabled={!baseDem} min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={e => setMaxElevSel(+e.target.value)} /></label><p>Terrain above this elevation or steeper than {CONST.MAX_SLOPE_DEG}° is blocked.</p></section>
@@ -250,11 +250,11 @@ export default function App() {
         </div>}
       </aside>
       <main className="screen-map" aria-label="Gale map">
-        <button type="button" className="screen-center" disabled={!dem} onClick={() => setCenterRequest(value => value + 1)}>Center</button>
+
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
         <MapView centerRequest={centerRequest} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} why={route ? why : null} sel={sel} onSelect={(n) => setSel((s) => (s === n ? null : n))} />
       </main>
-      <footer className="screen-footer"><button onClick={(e) => openPanel('results', e)} aria-label="View route results"><span><strong aria-label="Distance">{stats ? stats.km.toFixed(1) : '0'} km</strong></span><span><strong aria-label="Time">{stats ? stats.timeH.toFixed(1) : '0'} hrs</strong></span></button></footer>
+      <footer className="screen-footer"><div className="route-summary" aria-label="Route distance and time"><span><strong aria-label="Distance">{stats ? stats.km.toFixed(1) : '0'} km</strong></span><span><strong aria-label="Time">{stats ? stats.timeH.toFixed(1) : '0'} hrs</strong></span></div></footer>
 
 
     </div>

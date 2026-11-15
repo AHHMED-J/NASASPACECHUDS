@@ -5,14 +5,14 @@ import { CONST } from './constants.js'
 
 // Etiquetas y colores por motivo (los usan el mapa y la barra lateral)
 export const REASONS = {
-  slope: { icon: '⛰', label: 'Slope', color: '#ef4444' },
-  height: { icon: '▲', label: 'Maximum elevation', color: '#f97316' },
-  nodata: { icon: '?', label: 'No data', color: '#94a3b8' },
-  effort: { icon: '↗', label: 'Climb', color: '#f59e0b' },
-  sand: { icon: '≈', label: 'Dunes', color: '#d97706' },
-  rad: { icon: '☢', label: 'Radiation', color: '#a855f7' },
-  comm: { icon: '📡', label: 'Communication', color: '#3b82f6' },
-  rough: { icon: '▦', label: 'Rough terrain', color: '#14b8a6' },
+  slope: { icon: '⛰', label: 'Slope', color: '#142f57' },
+  height: { icon: '▲', label: 'Maximum elevation', color: '#142f57' },
+  nodata: { icon: '?', label: 'No data', color: '#142f57' },
+  effort: { icon: '↗', label: 'Climb', color: '#142f57' },
+  sand: { icon: '≈', label: 'Dunes', color: '#142f57' },
+  rad: { icon: '☢', label: 'Radiation', color: '#142f57' },
+  comm: { icon: '📡', label: 'Communication', color: '#142f57' },
+  rough: { icon: '▦', label: 'Rough terrain', color: '#142f57' },
 }
 
 // Celdas de una línea recta entre dos celdas (Bresenham, 8-conectada)

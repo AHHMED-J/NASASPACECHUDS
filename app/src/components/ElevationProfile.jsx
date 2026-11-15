@@ -14,7 +14,7 @@ export default function ElevationProfile({ dem, route }) {
   const data = route.cells.map(([x, y]) => dem.elev[y * dem.w + x])
   return (
     <Line
-      data={{ labels, datasets: [{ data, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,.18)', fill: true, pointRadius: 0, tension: 0.2 }] }}
+      data={{ labels, datasets: [{ data, borderColor: '#315b9a', backgroundColor: 'rgba(49,91,154,.18)', fill: true, pointRadius: 0, tension: 0.2 }] }}
       options={{
         animation: false,
         maintainAspectRatio: false,
