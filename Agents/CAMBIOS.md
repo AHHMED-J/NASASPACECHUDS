@@ -2,7 +2,15 @@
 
 Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba.
 
-Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, los cambios de hoy los hizo **Claude** (Anthropic): Opus 5.5 hasta las 14:59 y Sonnet 5.5 después. La entrada de las 17:31 la hizo **Grok**.
+Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, los cambios de hoy los hizo **Claude** (Anthropic): Opus 5.5 hasta las 14:59 y Sonnet 5.5 después. Las entradas de las 17:31 y las 18:04 las hizo **Grok**.
+
+---
+
+## 2026-11-14 18:04 — Plan de migración (sin cambios de código)
+
+**Agente:** Grok
+
+Nuevo `Agents/plan_de_migracion.md`: brecha entre el prototipo de Gale y el motor A* con GeoTIFF, archivos a refactorizar, módulos nuevos (`parser_tiff.mjs`, `normalizar.mjs`, `heuristica_astar.mjs`) y límites de memoria. Los puntos donde el md de arquitectura no fija una fórmula o contradice el código quedan escritos como supuestos. No se modificó código fuente.
 
 ---
 
