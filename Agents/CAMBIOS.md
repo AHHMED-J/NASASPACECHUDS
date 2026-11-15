@@ -262,3 +262,7 @@ Movidos Ajustes y Centrar a la esquina superior derecha en todas las orientacion
 
 ## 2026-11-15 01:45 — Codex — Revisión CSS Lovable
 Integrado CSS proporcionado por usuario en screen.css: cristal translúcido, botones redondeados, icono Ajustes y resumen central con acentos. Variables limitadas a screen-app y controles OpenLayers a screen-map. Conservados botones grandes, foco visible, áreas seguras, tamaños táctiles, controles existentes de panel y capas de modales; ajustes responsivos y movimiento reducido. Sin cambios JSX, cálculos o datos. Sin archivos adicionales en el proyecto.
+
+## 2026-11-15 01:49 — Codex — Encuadre automático de ruta
+Al completar el cálculo se encuadra toda la ruta con animación y margen para Ajustes/Centrar y métricas, según el tamaño real de pantalla. No se reencuadra al seleccionar marcadores o cambiar capas. Se limita acercamiento en rutas cortas y se respeta movimiento reducido. Sin archivos nuevos.
+

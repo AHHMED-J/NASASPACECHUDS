@@ -230,6 +230,32 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     )
   }, [dem, layer])
 
+  // Fit each completed route once; marker selection and layer changes keep the camera.
+  useEffect(() => {
+    if (!route?.cells.length || !dem) return
+    const map = ref.current.map
+    const target = map.getTargetElement()
+    const bounds = target.getBoundingClientRect()
+    const app = target.closest('.screen-app')
+    const settings = app?.querySelector('.screen-settings')?.getBoundingClientRect()
+    const center = app?.querySelector('.screen-center')?.getBoundingClientRect()
+    const footer = app?.querySelector('.screen-footer')?.getBoundingClientRect()
+    const controlsLeft = Math.min(settings?.left ?? bounds.right, center?.left ?? bounds.right)
+    const controlsBottom = Math.max(settings?.bottom ?? bounds.top, center?.bottom ?? bounds.top)
+    const bottom = footer ? Math.max(32, bounds.bottom - footer.top + 24) : 32
+    const reserveRight = bounds.right - controlsLeft + 24
+    const wide = bounds.width - reserveRight >= 240
+    let padding = wide ? [32, reserveRight, bottom, 32] : [Math.max(32, controlsBottom - bounds.top + 24), 24, bottom, 24]
+    // Very short displays still need a positive usable map area.
+    if (padding[0] + padding[2] >= bounds.height - 64) padding = [24, 24, Math.min(bottom, bounds.height / 4), 24]
+    const line = new LineString(route.cells.map(([x, y]) => dem.lonLat(x, y)))
+    map.getView().cancelAnimations()
+    map.getView().fit(line.getExtent(), {
+      padding,
+      minResolution: Math.max(dem.lonMax - dem.lonMin, dem.latMax - dem.latMin) / 500,
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500,
+    })
+  }, [route]) // eslint-disable-line react-hooks/exhaustive-deps
   // ruta + marcadores
   useEffect(() => {
     if (!dem) return
