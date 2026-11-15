@@ -1,42 +1,56 @@
-# Features disponibles en el repo
+# Features
 
-Lo que ya funciona hoy en la rama `feature/mars-route-demo`.
+Alcance del hackathon: rutas dinámicas en cualquier ventana de Marte, con A* sobre GeoTIFF. Abajo, el contrato de ese motor y, al final, lo que el repositorio todavía ejecuta.
 
-## Mapa
-- Cráter Gale completo (~311 × 311 km, 136.4–139.2°E / −6.8 a −4.0°N).
-- Mapa base: relieve sombreado del DEM o NASA Trek MOLA.
-- Capas de riesgo: radiación, rugosidad, comunicación, campos de dunas USGS y sombras.
-- Marcador **BASE** (Bradbury Landing).
+## Escala
 
-## Ruta
-- Clic en el inicio y clic en el destino (un tercer clic reinicia).
-- Ruta A* multifactor: esfuerzo, radiación, rugosidad, comunicación y dunas, todos normalizados de 0 a 1.
-- Bloqueo por pendiente mayor a 20°, altura máxima (con control deslizante) y datos faltantes.
-- Distancia, tiempo a pie y elevación en una tarjeta sobre el mapa.
-- Perfil de elevación.
-- Avisos: alejamiento mayor a 10 km de la base, tramos sin línea de vista, temperatura fuera del rango del traje.
+- Consulta por ventana geográfica, no por un recuadro fijo del cráter Gale.
+- Productos de cobertura global: MOLA, Mars Odyssey GRS, MGS MAG/ER, THEMIS y TES.
+- La ventana se recorta, se baja de resolución y se lee por teselas para poder usar archivos que, en bruto, llegan a unos 46 000 × 23 000 píxeles.
 
-## Explicación de la ruta (aporte principal)
-- Marcadores numerados en cada giro importante.
-- Frase por giro con el motivo: pendiente, altura, sin datos, subida, dunas, radiación, comunicación o rugosidad.
-- Al elegir un giro se ve en rojo el atajo recto que se descartó.
-- Resumen por motivo.
+## Ruta (A*)
 
-## Escenario
-- Hora local con temperatura de superficie y aire (Mars Climate Database) y curva de 24 h.
-- En "Opciones": estación y actividad solar.
+- Inicio y destino sobre la ventana elegida.
+- Costo \(f(n) = g(n) + h(n)\).
+- Celda transitable:
 
-## Comparación con Curiosity (benchmark)
-- Recorrido real de Curiosity (NASA/JPL), sin influir en nuestra ruta.
-- Corte por sol y fecha terrestre aproximada.
-- Relieve de 50 m (zona de Curiosity) o de 200 m (cráter completo).
-- Casilla "Evitar campos de dunas (USGS)".
-- Botón para usar su inicio y su posición en ese sol.
-- Métricas: distancia media y máxima, % a menos de 500 m, largos.
+  \(Costo = (V_{temp} \cdot P_{temp}) + (V_{rad} \cdot P_{rad}) + (V_{corr} \cdot P_{corr}) + (V_{suelo} \cdot P_{suelo})\)
 
-## Datos y transparencia
-- Panel "Datos considerados": fuente de cada dato, qué es medición, modelo o supuesto, y lo que no se considera.
-- Bitácora de cambios en `Agents/CAMBIOS.md`.
+- Cada \(V\) normalizado de 0 a 1 con el mínimo y el máximo de su matriz (0 favorable, 1 costoso).
+- Pesos \(P\) definidos en la interfaz para esa consulta.
+- Pendiente MOLA mayor a 15–20°: celda intransitable (costo infinito).
+- Celdas sin dato quedan fuera del grafo.
 
-## Herramientas de datos
-- `npm run fetch-dem`, `fetch-dem-1m`, `fetch-dunes`, `fetch-curiosity`, `fetch-mcd`.
+## Capas que pesan en la heurística
+
+| Capa | Dataset | Lectura |
+|---|---|---|
+| Percloratos | Mars Odyssey GRS | Mapas de cloro como proxy de \(ClO_4^-\). Más concentración, más costo |
+| Radiación (GCR y SPE) | Curiosity RAD y MGS MAG/ER | Más elevación (menos atmósfera) y menos magnetismo cortical, más costo. La cota sale de MOLA |
+| Temperatura | THEMIS | Gradiente por temporada, latitud y altitud. Extremos, más costo |
+| Relieve | MOLA | Elevación para radiación y temperatura; pendiente como obstáculo a partir de 15–20°. Rango de cota de referencia: −8 200 m a +21 200 m, pasado a `[0, 1]` |
+| Inercia térmica | THEMIS o TES | Inercia baja (arena o polvo), más costo. Inercia alta (roca), menos costo |
+
+## Datos
+
+- Entrada de trabajo: GeoTIFF (`.tif`) de esas misiones, ya recortados y remuestreados.
+- Lectura en Node con módulos `.mjs` y `geotiff` (`npm install geotiff` en `app`).
+- Normalización en caliente por capa, antes de aplicar pesos.
+- Varias capas cargadas de forma asíncrona y alineadas a la misma grilla.
+
+## Interfaz prevista sobre este motor
+
+- Mapa de la ventana consultada.
+- Controles de peso: temperatura, radiación, percloratos y suelo (inercia térmica).
+- Ruta dibujada entre inicio y destino, con el relieve usado como barrera de pendiente.
+
+## Prototipo que sigue en el repositorio
+
+La rama de demo todavía planea sobre Gale (~311 × 311 km, 136.4–139.2°E / −6.8 a −4.0°N) con fetches a ventanas ya convertidas, no con esta pila de GeoTIFF.
+
+- Mapa de Gale, marcador de Bradbury Landing, capas de radiación modelada, rugosidad, comunicación, dunas USGS y sombras.
+- A* con pesos fijos: esfuerzo, radiación, rugosidad, comunicación y dunas, normalizados de 0 a 1, y bloqueo por pendiente mayor a 20°.
+- Perfil de elevación, hora y temperatura de la Mars Climate Database (condición temporal, fuera del costo espacial), comparación con el recorrido de Curiosity.
+- Scripts actuales: `npm run fetch-dem`, `fetch-dem-1m`, `fetch-dunes`, `fetch-curiosity`, `fetch-mcd`.
+
+Ese prototipo es la línea base. El motor de las secciones anteriores es el que la documentación de arquitectura toma como sistema objetivo. Lo que falta para llegar ahí está en `featuresImplementar.md`.

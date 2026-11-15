@@ -1,8 +1,24 @@
-# Bitácora de cambios — Mars Route (Gale)
+# Bitácora de cambios — Motor de rutas en Marte
 
 Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba.
 
-Cada entrada indica qué agente hizo el cambio. Los cambios de hoy los hizo **Claude** (Anthropic): Opus 5.5 hasta la entrada de las 14:59 y Sonnet 5.5 después.
+Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, los cambios de hoy los hizo **Claude** (Anthropic): Opus 5.5 hasta las 14:59 y Sonnet 5.5 después. La entrada de las 17:31 la hizo **Grok**.
+
+---
+
+## 2026-11-14 17:31 — Documentación del pivot global (A* + GeoTIFF)
+
+**Agente:** Grok
+
+Los documentos de descripción quedan alineados con el motor de hackathon: rutas A* en cualquier ventana de Marte, no solo en el cráter Gale.
+
+**Capas de la heurística:** percloratos (Mars Odyssey GRS), radiación (Curiosity RAD y MGS MAG/ER, con elevación MOLA), temperatura (THEMIS), relieve (MOLA, obstáculo por pendiente mayor a 15–20°) e inercia térmica (THEMIS o TES).
+
+**Procesamiento:** GeoTIFF pesados en módulos `.mjs`, librería `geotiff` (`npm install geotiff` en `app`), normalización de cada matriz a `[0, 1]` antes de los pesos del usuario, y lectura por teselas tras recorte y downsampling.
+
+**Archivos:** `README.md`, `Agents/ARQUITECTURA.md`, `Agents/FEATURES_DISPONIBLES.md`, `Agents/featuresImplementar.md`, `Agents/contexto_datasets_nasa.md`.
+
+El prototipo de Gale (fetches fijos y pesos fijos) queda descrito como línea base, no como arquitectura objetivo. No se tocó código.
 
 ---
 

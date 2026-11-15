@@ -1,85 +1,102 @@
-# Arquitectura — Mars Route (Gale)
+# Arquitectura — Motor de rutas en Marte
 
-Aplicación web de una sola página que planea rutas de caminata (EVA) sobre el cráter Gale y explica por qué la ruta gira. Todo corre en el navegador; no hay servidor propio.
+El sistema calcula una ruta de superficie con A* sobre una ventana cualquiera de Marte. El costo sale de cinco capas GeoTIFF de la NASA, normalizadas y ponderadas por el usuario. La extensión deja de ser una constante del cráter Gale: Gale es solo una ventana posible.
+
+La interfaz sigue siendo la aplicación web (React, Vite, OpenLayers). La preparación de las capas y la grilla de costo se hacen en JavaScript con módulos ES (`.mjs`) y la librería `geotiff`.
+
+## Escala
+
+Los datasets de esta heurística son productos globales:
+
+- MOLA cubre la topografía del planeta.
+- Mars Odyssey GRS cubre la distribución de cloro.
+- MGS MAG/ER cubre el magnetismo cortical.
+- THEMIS (y TES, para inercia) cubren temperatura e inercia térmica a escala orbital.
+
+La consulta define la ventana (longitud, latitud y resolución de trabajo). El motor recorta y remuestrea esa ventana, alinea las capas a la misma grilla y ejecuta A* ahí. Un archivo global de hasta unos 46 000 × 23 000 píxeles no entra entero en RAM: hace falta recorte, downsampling y lectura por teselas.
 
 ## Stack
-React 19 + Vite + Tailwind v4 · OpenLayers (mapa) · proj4 (proyecciones de Marte) · Chart.js (gráficas).
 
-## Estructura
+- React 19 + Vite + Tailwind v4, para la interfaz y los pesos.
+- OpenLayers y proj4, para el mapa y las proyecciones de Marte.
+- Chart.js, para perfiles a lo largo de la ruta.
+- Node.js con ES Modules (`.mjs`).
+- `geotiff`, instalada con `npm install geotiff` dentro de `app`.
+
+## Estructura del repositorio
 
 ```
 NASASPACECUCKS/
-├── Agents/                 Bitácora (CAMBIOS.md), instrucciones y estos documentos
-├── README.md               Documentación general, fuentes y parámetros
+├── Agents/                 Contexto de datasets, arquitectura, features y bitácora
+├── README.md               Escala, requisitos, capas y fórmula de costo
 └── app/
-    ├── public/data/        Datos descargados (los lee el navegador)
-    ├── scripts/            Descargan y preparan los datos (Node, se corren a mano)
-    └── src/
-        ├── main.jsx        Arranque
-        ├── App.jsx         Estado, cálculo de la ruta y barra lateral
-        ├── components/     Interfaz
-        └── lib/            Lógica (sin interfaz)
+    ├── public/data/        Ventanas ya preparadas para el navegador
+    ├── scripts/            Lectura y preparación en Node (`.mjs`)
+    └── src/                Interfaz y búsqueda
 ```
 
-## Flujo de datos
+## Flujo
 
 ```
-NASA / USGS ──(scripts/ fetch-*)──► public/data/ ──(fetch en el navegador)──► lib/dem.js
-                                                                                  │
-                          lib/radiation, comm, effort, dunas ─► riesgos 0–1 por celda
-                                                                                  ▼
- clic inicio + clic destino ─► lib/route.js (A*) ─► lib/explain.js ─► App.jsx ─► MapView / lista
+GeoTIFF NASA (GRS, RAD/MAG-ER, THEMIS, MOLA, TES)
+        │
+        ▼
+recorte + downsampling + teselas
+        │
+        ▼
+lectura con geotiff (.mjs) → matriz por capa
+        │
+        ▼
+mínimo/máximo → normalización [0, 1] orientada a costo
+        │
+        ▼
+pesos de la interfaz + pendiente MOLA (bloqueo 15–20°)
+        │
+        ▼
+A*  →  ruta sobre la ventana elegida
 ```
 
-## Datos (`app/public/data/`)
+## Capas de la heurística
 
-| Archivo | Qué es | Origen |
-|---|---|---|
-| `gale-dem.f32/.json`, `gale-rough.f32` | Relieve de todo el cráter a 200 m y su rugosidad | USGS, DEM global MOLA–HRSC |
-| `gale50-dem.f32/.json`, `gale50-rough.f32` | Relieve a 50 m de la zona de Curiosity | USGS, DEM de Gale de 1 m promediado |
-| `gale-dunes.json` | Campos de dunas de Gale (GeoJSON) | USGS MGD3 (OFR 2007-1158) |
-| `curiosity-traverse.json` | Recorrido real de Curiosity y su distancia por sol | NASA/JPL MMGIS |
-| `gale-temp.json` | Temperatura y presión por hora y estación | Mars Climate Database (LMD) |
+Cinco variables entran en la decisión. Cuatro son términos ponderados. El relieve, además, cierra celdas.
 
-## Scripts (`app/scripts/`)
+| Capa | Qué se lee del píxel | Dataset | Papel en \(g(n)\) |
+|---|---|---|---|
+| Percloratos | Cloro como proxy de \(ClO_4^-\) | Mars Odyssey GRS | \(V_{corr} \cdot P_{corr}\). Más concentración, más costo |
+| Radiación | Exposición (GCR y SPE) | Curiosity RAD + MGS MAG/ER, con la cota de MOLA | \(V_{rad} \cdot P_{rad}\). Más altura y menos magnetismo, más costo |
+| Temperatura | Fluctuación térmica (temporada, latitud, altitud) | THEMIS | \(V_{temp} \cdot P_{temp}\). Más extremo, más costo |
+| Inercia térmica | Arena suelta frente a roca | THEMIS o TES | \(V_{suelo} \cdot P_{suelo}\). Inercia baja, más costo |
+| Relieve | Elevación y pendiente | MOLA | Pendiente > 15–20°: costo infinito. La cota alimenta radiación y el gradiente térmico |
 
-| Script | Comando | Genera |
-|---|---|---|
-| `fetch-dem.mjs` | `npm run fetch-dem` | DEM de 200 m y rugosidad |
-| `fetch-dem-1m.mjs` | `npm run fetch-dem-1m` | DEM de 50 m (`gale50-*`) |
-| `fetch-dunes.mjs` | `npm run fetch-dunes` | `gale-dunes.json` |
-| `fetch-curiosity.mjs` | `npm run fetch-curiosity` | `curiosity-traverse.json` |
-| `fetch-mcd.mjs` | `npm run fetch-mcd` | `gale-temp.json` |
+## Costo
 
-## Código (`app/src/`)
+\[
+f(n) = g(n) + h(n)
+\]
 
-### Componentes
-- **`App.jsx`**: estado global (inicio, destino, hora, altura máxima, modo comparación), llama a A* y al explicador, calcula las estadísticas y arma la barra lateral.
-- **`MapView.jsx`**: mapa de OpenLayers. Mapa base (relieve o Trek MOLA), capas de riesgo, ruta, recorrido de Curiosity, marcadores numerados de los giros y atajo descartado.
-- **`DataPanel.jsx`**: panel "Datos considerados" (qué se usa, fuente, y qué no se considera).
-- **`ElevationProfile.jsx`**: perfil de elevación de la ruta.
-- **`TemperatureCard.jsx`**: hora local, temperatura y curva de 24 h.
+\[
+Costo = (V_{temp} \cdot P_{temp}) + (V_{rad} \cdot P_{rad}) + (V_{corr} \cdot P_{corr}) + (V_{suelo} \cdot P_{suelo})
+\]
 
-### Lógica (`lib/`)
-- **`dem.js`**: carga los datos y construye la malla de celdas: pendiente, rugosidad, línea de vista, radiación y dunas (rasteriza los polígonos del USGS).
-- **`route.js`**: A* de 8 vecinos con montículo tipado. `stepParts` desglosa el costo de un paso por factor.
-- **`explain.js`**: detecta los giros (Douglas–Peucker) y los compara con el atajo recto, con la misma fórmula de costo.
-- **`effort.js`**: esfuerzo al caminar según el gradiente (Minetti 2002), normalizado de 0 a 1.
-- **`radiation.js`**: dosis por celda según la presión (modelo anclado en MSL/RAD, Guo 2018).
-- **`comm.js`**: línea de vista con la base, con la curvatura de Marte.
-- **`curiosity.js`**: carga, corte por sol y comparación con nuestra ruta.
-- **`sun.js`**: posición del Sol y sombras (solo capa visual).
-- **`temperature.js`**: lee la tabla de la MCD.
-- **`constants.js`**: constantes fijas con su fuente.
+Cada \(V\) está en `[0, 1]` antes de multiplicar por \(P\). La normalización es en caliente: se toma el mínimo y el máximo de la matriz de esa ventana. Ejemplo de escala cruda: la altitud MOLA, de −8 200 m a +21 200 m, pasa a una penalización de 0 a 1. La inercia se invierte respecto al valor crudo, porque el suelo favorable es la inercia alta.
 
-## Cálculo de la ruta
-1. Cada factor se normaliza de 0 (ideal) a 1 (lo peor): esfuerzo, radiación, rugosidad, comunicación y dunas.
-2. Costo de cada metro = `1 + Σ peso × riesgo`. Pesos fijos: esfuerzo 1, radiación 2, el resto 1.
-3. Se bloquean las celdas con pendiente > 20°, sobre la altura máxima o sin dato, y no se cortan esquinas.
-4. A* devuelve la ruta; el explicador la compara con atajos para decir por qué gira.
+Una celda sin dato, fuera de la tesela o con pendiente por encima de 15–20° no entra en la suma: A* la trata como obstáculo.
 
-## Decisiones de diseño
-- **Todo en el navegador**: no hay servidor; los datos se descargan una vez con los scripts y se guardan en el repo.
-- **Dos resoluciones**: 200 m para todo el cráter y 50 m para la zona de Curiosity (se carga solo en modo comparación).
-- **Clic-clic en vez de arrastrar**: A* corre una sola vez por ruta; así se gasta menos y el explicador usa el mismo resultado.
-- **Sin supuestos sin fuente**: se quitaron la ladera de lado, la sombra en el costo y la arena estimada.
+Los pesos \(P_{temp}\), \(P_{rad}\), \(P_{corr}\) y \(P_{suelo}\) los fija el usuario en cada consulta. No hay un juego de pesos escrito solo para Gale.
+
+## Lectura de los GeoTIFF
+
+`geotiff` abre el `.tif` de la ventana de trabajo, toma la imagen y la banda principal, y expone ancho, alto y el valor en \((x, y)\). Esas lecturas son la grilla de A*. Varias capas se cargan de forma asíncrona y se alinean a la misma malla antes de normalizar.
+
+Archivos de varias decenas de miles de píxeles por lado se preparan fuera de este paso (recorte y downsampling, por ejemplo con QGIS). En ejecución, la lectura va por teselas de la ventana pedida.
+
+## Decisiones
+
+- **Ventana, no planeta entero en RAM.** El soporte es global porque la ventana es libre. El ráster residente es el recorte de trabajo.
+- **Misma escala antes de ponderar.** Sin la normalización `[0, 1]`, un peso de temperatura no es comparable con uno de cloro o de inercia.
+- **Pendiente como muro.** El relieve no compite en la suma con los otros cuatro términos: a partir de 15–20° la celda es intransitable, y la elevación sí modifica radiación y temperatura.
+- **Pesos en la interfaz.** La misma grilla puede priorizar traje (percloratos), dosis (radiación), energía térmica o transitabilidad del suelo.
+
+## Transición desde el prototipo de Gale
+
+El código que hoy corre sigue descargando ventanas fijas de Gale (DEM, dunas, temperatura de la Mars Climate Database, recorrido de Curiosity) y calcula A* con factores de ese prototipo: esfuerzo, radiación modelada, rugosidad, comunicación y dunas, con pesos fijos. Esa línea base queda descrita en `FEATURES_DISPONIBLES.md`. El motor de este documento la sustituye: GeoTIFF globales, cinco capas de esta heurística, normalización por matriz y pesos elegidos por el usuario. El trabajo pendiente está en `featuresImplementar.md`.

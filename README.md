@@ -1,64 +1,75 @@
-# NASA Space Apps – Health Monitoring
+# NASA Space Apps — Motor de rutas en Marte
 
-## Requisitos (todos)
+Sistema de rutas óptimas sobre la superficie de Marte. El costo de cada celda sale del algoritmo A* y de capas GeoTIFF (`.tif`) de la NASA. El usuario asigna el peso de cada variable en la interfaz.
+
+La malla no está fija en el cráter Gale. Gale puede usarse como ventana de ejemplo. La extensión geográfica es un parámetro: cualquier región de Marte cuyos rásteres quepan en memoria tras recorte, reducción de resolución y lectura por teselas.
+
+## Requisitos
+
 - Git
-- Node 24 (usa `nvm use` en Mac/Linux, o nvm-windows / instalador desde nodejs.org)
-- Un editor (VS Code recomendado)
+- Node 24 (en Mac/Linux: `nvm use`; en Windows: nvm-windows o el instalador de nodejs.org)
+- Un editor
+- Procesamiento de GeoTIFF pesados con la librería `geotiff`, en módulos ES (`.mjs`)
+- Normalización de cada capa a una escala común `[0, 1]` antes de aplicar los pesos
+
+Los productos originales de la NASA llegan a unos 46 000 × 23 000 píxeles. El motor trabaja con archivos ya recortados a la ventana de interés y reducidos de resolución (por ejemplo en QGIS), y los lee por teselas. Un mapa global completo no se carga de una vez en RAM.
+
+Instalación de la librería de lectura, dentro de `app`:
+
+```bash
+npm install geotiff
+```
+
+`npm install` en `app` también la trae: `geotiff` ya figura en las dependencias de desarrollo del proyecto.
 
 ## Arrancar
+
 1. `git clone https://github.com/AHHMED-J/NASASPACECUCKS.git && cd NASASPACECUCKS`
-2. `cp .env.example .env` (en Windows: `copy .env.example .env`) y rellena las claves, pedidas por el chat privado.
-3. `cd app && npm install && npm run dev`
+2. `cp .env.example .env` (en Windows: `copy .env.example .env`) y rellena las claves pedidas por el chat privado.
+3. `cd app && npm install && npm install geotiff && npm run dev`
 4. Abre http://localhost:5173
 
 ## Reglas
-- Instalar paquetes: `npm install <paquete>` y commit de `package.json` + `package-lock.json`. Nunca borres el lockfile.
+
+- Instalar paquetes con `npm install <paquete>` y hacer commit de `package.json` y `package-lock.json`. El lockfile no se borra.
 - Tras un pull con dependencias nuevas: `npm install`.
 - Nunca subas `.env`. Las variables `VITE_*` son visibles en el navegador: no pongas secretos ahí.
 - Nombres de archivo con mayúsculas exactas (`Header.jsx` se importa como `./Header`).
 
-## Demo: Mars Route (Gale)
-Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtro de **altura máxima**, ruta A* multifactor entre dos clics y perfil de elevación (Chart.js).
+## Capas de la heurística A*
 
-- Stack: React + Vite + Tailwind + OpenLayers + proj4 + Chart.js.
-- Capa base: NASA Trek WMTS (MOLA ClrShade, EPSG:104905).
-- Elevación y pendiente (rama `feature/gale-full`): **todo el cráter Gale (~311×311 km, 136.4-139.2°E / -6.8 a -4.0°N) a 200 m**, del DEM global USGS "MOLA–HRSC Blended DEM 200 m v2" (https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m). `npm run fetch-dem` lee solo esa ventana del GeoTIFF remoto (~1.4 MB por peticiones parciales) → `app/public/data/gale-dem.f32` (829×830 celdas, 2.7 MB) + `gale-rough.f32` (rugosidad a ~600 m: desviación respecto a un plano en 3×3 celdas). Rango: -4688 a +1464 m. El DEM de 1 m de la zona de Curiosity sigue disponible con `npm run fetch-dem-1m` (sobrescribe los mismos archivos).
-  - A 200 m la pendiente y la rugosidad se suavizan: se subestiman pendientes abruptas, y no se ven rocas. La línea de vista incluye la curvatura de Marte (a 20 km la superficie cae ~59 m).
-  - Mapa base (selector): relieve sombreado generado del DEM, o Trek MOLA (463 m, borroso a este zoom). La ortofoto HiRISE se quitó de la interfaz.
-- **Radiación: modelo anclado en datos de la NASA** (`app/src/lib/radiation.js`). Fuente: Guo et al. 2018, JGR, https://arxiv.org/abs/1712.06987 (MSL/RAD + HZETRN2015).
-  - Referencia medida en Gale: ~220 µGy/día × Q≈3.05 → **~0.67 mSv/día** (a ~-4.4 km, 840 Pa).
-  - Pendiente dosis-presión: 126 µSv/día cada 250 Pa (HZETRN2015, Φ=500 MV); se debilita con la actividad solar y se anula hacia Φ≈900-1000 MV (selector "Actividad solar").
-  - La presión por altura usa una atmósfera isoterma (T=210 K, **supuesto nuestro**).
-  - **Límite importante:** Curiosity está siempre a ~-4.4 km, así que lo medido cubre solo 700-950 Pa. Las zonas altas del recorte (hasta ~+1 km) son **extrapolación lineal**. No se modela relieve local ni albedo.
-  - El modelo coincide con RAD en el punto de anclaje **por construcción**: es referencia, no validación independiente.
-- **Temperatura: datos reales de la Mars Climate Database** (LMD, v6.2, escenario "climatology average solar"), consultados con `npm run fetch-mcd` (48 consultas con pausa; la web es de uso moderado) → `app/public/data/gale-temp.json`. Tabla de 4 estaciones (Ls 0/90/180/270) × 12 horas locales (temperatura de superficie/aire y presión de superficie), en el centro de la zona. En Gale la superficie va de ~-90 °C de noche a ~+13 °C de día.
-  - **Es una condición de hora/estación, no un costo espacial:** medimos 9 puntos dentro de los 150 km y la MCD solo varía ~1 K (su resolución es gruesa). Por eso no entra en el costo de A* ni hay capa de temperatura. Para variación espacial haría falta inercia térmica/albedo (THEMIS/TES, vía Trek).
-  - Créditos de la MCD: LMD/OU/IAA/ESA/CNES. https://www-mars.lmd.jussieu.fr/mcd_python/
-- Radiación y estación: la presión de superficie de cada celda parte de la presión **real de la MCD** para la estación y hora elegidas (721-965 Pa en nuestra zona, coherente con el rango medido por REMS de 700-950 Pa que cita el paper).
+Cada variable es un ráster alineado a la misma grilla. El valor de celda se normaliza a `[0, 1]` (0 favorable, 1 costoso) con el mínimo y el máximo de esa matriz, y después se multiplica por el peso que eligió el usuario.
 
-### Parámetros de la ruta (A*)
-**Constantes (no editables en la UI, ver `app/src/lib/constants.js`)**: pendiente máx. 20° (valor Artemis/xEMU lunar, supuesto), velocidad 2.7 km/h, excursión máx. 10 km (solo aviso), límite de dosis 600 mSv, rango térmico del traje 93–378 K (xEMU lunar; no hay límite de traje marciano publicado), base (Bradbury Landing), altura de antena 2 m, oblicuidad de Marte 25.19°, celda 200 m (cráter completo) o 50 m (zona de Curiosity).
+| Capa | Variable | Dataset | Efecto en A* |
+|---|---|---|---|
+| Percloratos | Concentración de percloratos (\(ClO_4^-\)), a partir de los mapas de cloro | Mars Odyssey GRS (Gamma Ray Spectrometer) | Más cloro → más costo (oxidante tóxico y corrosivo para el traje) |
+| Radiación | Exposición a GCR y SPE. La elevación aproxima el espesor de atmósfera; el magnetismo cortical es un escudo local | Curiosity RAD (referencia medida) y MGS MAG/ER (Mars Global Surveyor Magnetometer) | Más elevación y menos magnetismo → más costo |
+| Temperatura | Fluctuación térmica. El gradiente combina temporada, latitud y altitud | THEMIS (Thermal Emission Imaging System) | Temperaturas extremas → más costo |
+| Relieve | Elevación y pendiente (slope) | MOLA (Mars Orbiter Laser Altimeter) | Pendiente mayor a 15–20° → costo infinito (celda intransitable). La cota también entra en el término de radiación |
+| Inercia térmica | Transitabilidad del suelo: arena suelta o roca | THEMIS o TES | Inercia baja (arena o polvo, riesgo de hundimiento) → más costo. Inercia alta (roca) → menos costo |
 
-**Variables (barra lateral)**: hora local y altura máxima; en "Opciones": estación y actividad solar. Los pesos de la ruta son fijos (esfuerzo 1, radiación 2, rugosidad 1, comunicación 1, dunas 1).
+La elevación MOLA va de unos −8 200 m a +21 200 m. Ese rango, como el resto de capas, se traduce a una penalización de 0 a 1 antes de ponderar. La pendiente no es un peso más: por encima del umbral la celda queda fuera del grafo.
 
-**Normalización 0–1**: cada factor va de 0 (ideal) a 1 (lo peor) y el costo de cada metro es `1 + Σ peso × riesgo`; con peso 1, lo peor de un factor duplica el costo de ese metro. Escalas: radiación fija (0.60 → 0, 0.90 mSv/día → 1); esfuerzo fijo (0 = bajada suave ~-15 %, 1 = subir a 20°; plano ≈ 0.12); dunas = fracción de la celda en un campo USGS; comunicación 0/1; rugosidad relativa a la zona (percentil 95 = 1, no hay umbral físico publicado).
+## Costo de la ruta
 
-**Factores en el costo**: campos de dunas del USGS (ver abajo); esfuerzo metabólico (polinomio de Minetti 2002, coeficientes de memoria, sin verificar contra el paper; gravedad terrestre); radiación (modelo Guo 2018); rugosidad (desviación estándar de alturas de 1 m tras quitar tendencia, relativa al p95; es un proxy, el DEM no resuelve rocas; `gale-rough.f32` vía `npm run fetch-dem`); comunicación (línea de vista a la base, viewshed); sol/sombra (posición solar + sombras del terreno). Bloqueo: altura > máx., pendiente > 20° o sin dato.
+\[
+f(n) = g(n) + h(n)
+\]
 
-**Botón "Ver todos los datos considerados"** (`DataPanel.jsx`): lista parámetros variables, constantes con fuente, datos reales, modelos, resultado de la ruta actual y lo que NO se considera (arena fuera de los campos de dunas, margen a acantilados más allá de no cortar esquinas, temperatura espacial, etc.).
+\(g(n)\) acumula el costo de las celdas ya recorridas. En una celda transitable:
 
-### Comparación con Curiosity (benchmark)
-Casilla "Mostrar recorrido real de Curiosity": dibuja el recorrido real del rover (NASA/JPL MMGIS, `npm run fetch-curiosity` → `app/public/data/curiosity-traverse.json`, simplificado a ~2 m, con la distancia y posición oficial al final de cada sol). No entra en A*. Mientras está activa, nuestra ruta usa **solo el relieve** (esfuerzo por subidas/bajadas y bloqueo > 20°; sin radiación, rugosidad, comunicación ni filtro de altura). Controles:
-- **Hasta el sol X**: recorta el recorrido de Curiosity en esa fecha (la posición final es el waypoint oficial de ese sol).
-- **Relieve (DEM)**: 50 m en la zona de Curiosity (DEM USGS de 1 m promediado; `npm run fetch-dem-1m` → `gale50-*`) o 200 m del cráter completo.
-- **Evitar campos de dunas (USGS)**: añade los campos de dunas de la base de datos global de dunas de Marte del USGS (MGD3, Hayward et al. 2007, OFR 2007-1158, https://pubs.usgs.gov/of/2007/1158/; `npm run fetch-dunes` → `app/public/data/gale-dunes.json`). En Gale hay 2 campos: 1370-050 (dunas Bagnold, 425 km²) y 1376-059 (414 km²). Cada celda guarda la fracción dentro del contorno; encarece cruzar, no bloquea (Curiosity las cruzó). Es el contorno del campo, no cada duna. También pesa en la ruta normal (peso 1) y se puede ver como capa.
-- "Usar su inicio y su posición en ese sol" pone nuestros extremos en los de Curiosity; se muestran distancia media/máxima al recorrido, % a menos de 500 m y largos.
+\[
+Costo = (V_{temp} \cdot P_{temp}) + (V_{rad} \cdot P_{rad}) + (V_{corr} \cdot P_{corr}) + (V_{suelo} \cdot P_{suelo})
+\]
 
-Limitación: Curiosity se desvió por ciencia, arena y desgaste de ruedas; no buscó el camino más corto.
+\(V\) es el valor normalizado de 0 a 1. \(P\) es el peso de la interfaz. \(V_{suelo}\) sale de la inercia térmica, orientada para que la arena pese más que la roca. \(V_{rad}\) combina la elevación (menos atmósfera) y el magnetismo cortical (menos campo, más exposición), con Curiosity RAD como ancla de la magnitud.
 
-### Por qué esta ruta (explicación de giros)
-Clic en el inicio y clic en el destino (arrastrar mueve el mapa). A* corre una sola vez y luego `app/src/lib/explain.js`:
-1. Detecta los giros importantes simplificando la ruta (Douglas-Peucker; ignora zigzags menores a ~3 celdas o 2 % del largo).
-2. En cada giro compara el tramo real con el **atajo recto** entre el giro anterior y el siguiente, usando la misma fórmula de costo que A* (`stepParts` en `route.js`), separada por factor.
-3. El motivo es lo que hace inviable o más caro el atajo: bloqueo (pendiente > 20°, altura máxima, sin datos) o el factor con mayor sobrecosto (subida, arena, radiación, comunicación, rugosidad). Si el atajo no es más caro (efecto de la cuadrícula), el giro no se explica.
-Se muestra como marcadores numerados por color de motivo, una lista en la barra lateral y, al seleccionar uno, el atajo descartado en rojo punteado (con una ✕ donde estaría bloqueado).
+## Stack
+
+- Interfaz: React 19, Vite, Tailwind v4, OpenLayers, proj4, Chart.js.
+- Datos y búsqueda: JavaScript en ES Modules (`.mjs`), Node, librería `geotiff` (`npm install geotiff`).
+- Lectura: ancho, alto y valor de cada píxel de la banda principal del `.tif`, para consultar la celda \((x, y)\) durante A*.
+- Normalización en caliente: mínimo y máximo de cada matriz cargada, escala `[0, 1]`, con el sentido de costo de esa capa.
+- Memoria: recorte previo, downsampling y tiling. Los `.tif` de trabajo son ventanas reducidas, no el ráster global crudo.
+
+El detalle de datasets, la fórmula y las reglas de memoria están en `Agents/contexto_datasets_nasa.md`. La estructura del motor está en `Agents/ARQUITECTURA.md`.
