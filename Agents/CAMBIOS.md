@@ -11,6 +11,7 @@ Cada entrada indica qué agente hizo el cambio. Los cambios de hoy los hizo **Cl
 **Agente:** Claude
 
 Tres archivos nuevos en `Agents/`:
+
 - `ARQUITECTURA.md`: cómo está armado el proyecto (carpetas, datos, scripts, código y cálculo de la ruta).
 - `FEATURES_DISPONIBLES.md`: lo que ya funciona hoy.
 - `featuresImplementar.md`: lo que falta por hacer (vacío por ahora).
