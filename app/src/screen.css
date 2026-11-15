@@ -63,8 +63,8 @@
   font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
 }
-.screen-footer span:first-child::before { content: "Distancia"; }
-.screen-footer span:last-child::before { content: "A pie"; }
+.screen-footer span:first-child::before { content: "Distance"; }
+.screen-footer span:last-child::before { content: "Time"; }
 .screen-footer strong {
   font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -218,3 +218,125 @@
 @media (prefers-reduced-motion: reduce) {
   .screen-app *, .screen-app *::before { animation: none !important; transition: none !important; }
 }
+
+/* Square, text-only map controls. */
+.screen-app .screen-settings, .screen-app .screen-center { width: 112px; height: 112px; padding: 8px; border-radius: 0; justify-content: center; gap: 0; font-size: 18px; }
+.screen-app .screen-settings::before, .screen-app .screen-center::before { content: none; display: none; }
+@media (max-width: 640px) { .screen-app .screen-settings, .screen-app .screen-center { width: 76px; height: 76px; padding: 6px; font-size: 14px; } }
+
+/* Rectangular map controls and route summary. */
+.screen-app .screen-settings, .screen-app .screen-center { width: 156px; height: 56px; border-radius: 0; }
+.screen-app .screen-center { top: calc(max(20px, env(safe-area-inset-top)) + 68px); }
+.screen-app .screen-footer > button { border-radius: 0; }
+@media (max-width: 640px) { .screen-app .screen-settings, .screen-app .screen-center { width: 120px; height: 48px; } .screen-app .screen-center { top: calc(max(20px, env(safe-area-inset-top)) + 60px); } }
+
+/* Consistent route-summary text color. */
+.screen-app .screen-footer span::before, .screen-app .screen-footer span strong { color: var(--text); }
+
+/* Rectangular point-selection prompt. */
+.screen-app .screen-picking, .screen-app .screen-picking button { border-radius: 0; }
+
+/* Centered panels with full-width rectangular actions. */
+.screen-app .screen-sheet {
+  left: 50%; right: auto; top: max(12px, env(safe-area-inset-top));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: min(400px, calc(100% - 24px)); max-height: none;
+  transform: translateX(-50%); animation: fade 0.2s ease;
+}
+.screen-app .screen-sheet nav { display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; }
+.screen-app .screen-sheet button:not(.panel-close) {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 46px; padding: 12px 16px;
+  border: 1px solid rgba(251, 226, 180, .6); border-radius: 0;
+  background: transparent; color: var(--text); text-align: center;
+}
+.screen-app .screen-sheet .point-controls button { align-items: flex-start; text-align: left; }
+.screen-app .sheet-heading { gap: 16px; }
+.screen-app .sheet-heading h2 { flex: 1; }
+.screen-app .sheet-heading .panel-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px;
+  padding: 0; border: 1px solid rgba(251, 226, 180, .6); border-radius: 0;
+  background: transparent; color: var(--text); font-size: 24px; line-height: 1;
+}
+/* Map-anchored route explanation, opened by numbered markers. */
+.route-warning { width: min(300px, calc(100vw - 48px)); padding: 16px; border: 1px solid #ffffff26; border-radius: 0; background: #0a0e18f5; color: #e9eef7; box-shadow: 0 8px 24px #0005; font-family: Inter, 'Segoe UI', sans-serif; }
+.route-warning[hidden] { display: none; }
+.route-warning-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.route-warning-heading strong { font-size: 14px; color: #fbe2b4; }
+.screen-app .route-warning-heading button { flex: 0 0 32px; width: 32px; min-height: 32px; height: 32px; border: 0; border-radius: 0; padding: 0; background: transparent; color: #e9eef7; font-size: 22px; cursor: pointer; }
+.route-warning p { margin: 0; color: #bdc7d7; font-size: 13px; line-height: 1.6; }
+
+/* Larger, readable route warnings that still fit narrow screens. */
+.route-warning {
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px); overflow-y: auto;
+  box-sizing: border-box; padding: 28px;
+}
+.route-warning-heading { gap: 18px; margin-bottom: 16px; }
+.route-warning-heading strong { font-size: 26px; line-height: 1.35; }
+.route-warning p { font-size: 24px; line-height: 1.55; }
+.screen-app .route-warning-heading button {
+  flex-basis: 44px; width: 44px; height: 44px; min-height: 44px;
+  font-size: 32px;
+}
+@media (max-width: 480px) {
+  .route-warning { padding: 20px; }
+}
+/* Settings readability and boxed local-time control. */
+.settings-panel .local-time-control {
+  display: block; padding: 16px; border: 1px solid rgba(251, 226, 180, .6);
+  border-radius: 0; background: rgba(255,255,255,.025);
+}
+.screen-app .settings-panel { font-size: 21px; line-height: 1.5; }
+.screen-app .settings-panel .text-xs { font-size: 18px; }
+.screen-app .settings-panel .text-sm { font-size: 21px; }
+.screen-app .settings-panel .text-base { font-size: 24px; }
+.screen-app .settings-panel .text-lg { font-size: 27px; }
+.screen-app .settings-panel h2 { font-size: 24px; }
+.screen-app .settings-panel .sheet-heading h2 { font-size: 30px; }
+.screen-app .settings-panel select, .screen-app .settings-panel button:not(.panel-close) { font-size: 20px; }
+.screen-app .settings-panel .local-time-control > div { gap: 12px; }
+.time-step-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.screen-app .settings-panel .time-step-controls button { min-height: 48px; border-radius: 0; font-variant-numeric: tabular-nums; }
+
+/* Center is the only floating map action. */
+.screen-app .screen-center { top: max(20px, env(safe-area-inset-top)); }
+
+/* Docked admin controls: reserve space instead of covering the map. */
+.screen-app { --admin-width: min(380px, 55vw); }
+.screen-app.admin-open .screen-map { right: var(--admin-width); }
+.screen-app.admin-open .screen-footer { left: calc((100% - var(--admin-width)) / 2); max-width: calc(100% - var(--admin-width) - 24px); }
+.screen-app.admin-open .screen-footer span { padding-left: clamp(10px, 2vw, 38px); padding-right: clamp(10px, 2vw, 38px); }
+.screen-admin { position: absolute; right: max(20px, env(safe-area-inset-right)); top: calc(max(20px, env(safe-area-inset-top)) + 68px); z-index: 20; width: 156px; height: 56px; border-radius: 0; border: 1px solid rgba(251,226,180,.6); background: var(--glass); color: var(--text); backdrop-filter: blur(14px); font-size: 18px; font-weight: 600; cursor: pointer; }
+.screen-admin:hover, .screen-admin[aria-expanded=true] { background: var(--glass-strong); border-color: var(--accent-2); }
+.admin-sidebar { position: absolute; top: 0; bottom: 0; right: 0; width: var(--admin-width); z-index: 25; overflow-y: auto; box-sizing: border-box; padding: 20px; border-left: 1px solid #ffffff26; background: #0a0e18; color: #e9eef7; }
+.admin-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.admin-heading h2 { font-size: 26px; }
+.admin-sidebar button { min-height: 44px; border: 1px solid #fbe2b499; border-radius: 0; background: transparent; color: #e9eef7; padding: 8px 12px; cursor: pointer; }
+.admin-heading button { width: 44px; font-size: 24px; }
+.admin-sidebar section { padding: 20px 0; border-top: 1px solid #ffffff26; }
+.admin-sidebar h3 { margin-bottom: 16px; font-size: 18px; color: #fbe2b4; }
+.admin-sidebar label { display: block; margin-bottom: 16px; font-size: 15px; }
+.admin-sidebar input[type=range] { width: 100%; min-height: 40px; }
+.admin-sidebar select { width: 100%; min-height: 44px; border-radius: 0; background: #131321; color: #e9eef7; }
+.admin-sidebar p { font-size: 13px; line-height: 1.5; color: #bdc7d7; }
+.admin-sidebar .local-time-control { padding: 14px; border: 1px solid #fbe2b499; }
+.admin-sidebar .time-step-controls { margin-bottom: 16px; }
+@media (max-width: 640px) { .screen-admin { right: max(12px, env(safe-area-inset-right)); top: calc(max(20px, env(safe-area-inset-top)) + 60px); width: 120px; height: 48px; font-size: 14px; } .admin-sidebar { padding: 14px; } .screen-app.admin-open .screen-footer strong { font-size: 20px; } }
+
+/* Permanent black control rail; Admin only toggles its contents. */
+.screen-app .screen-map, .screen-app.admin-open .screen-map { right: var(--admin-width); }
+.screen-app .admin-sidebar { background: #000; }
+.sidebar-actions { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.screen-app .admin-sidebar .screen-center, .screen-app .admin-sidebar .screen-admin {
+  position: static; width: 100%; height: 56px; min-height: 48px;
+  padding: 12px; border-radius: 0; font-size: 18px;
+  background: #0a0e18; border: 1px solid #fbe2b499;
+}
+.screen-app .screen-footer, .screen-app.admin-open .screen-footer {
+  left: max(16px, env(safe-area-inset-left)); right: auto;
+  transform: none; max-width: calc(100% - var(--admin-width) - 32px);
+}
+.screen-app .screen-footer span { padding-left: clamp(8px, 2vw, 30px); padding-right: clamp(8px, 2vw, 30px); }
+@media (max-width: 640px) { .screen-app .screen-footer strong { font-size: 20px; } .screen-app .screen-footer span { padding: 12px 8px; } }

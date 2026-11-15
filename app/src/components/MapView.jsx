@@ -3,6 +3,7 @@ import proj4 from 'proj4'
 import { register } from 'ol/proj/proj4'
 import { get as getProjection } from 'ol/proj'
 import Map from 'ol/Map'
+import Overlay from 'ol/Overlay'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import { defaults as defaultInteractions } from 'ol/interaction/defaults'
 import View from 'ol/View'
@@ -106,8 +107,10 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-export default function MapView({ dem, layer, basemap, filter, route, start, end, onPick, curiosity, why, sel, onSelect }) {
+export default function MapView({ centerRequest, dem, layer, basemap, filter, route, start, end, onPick, why, sel, onSelect }) {
   const el = useRef(null)
+  const warningEl = useRef(null)
+  const selectedReason = route ? why?.items.find(item => item.n === sel) : null
   const ref = useRef({})
   const pickRef = useRef(onPick)
   pickRef.current = onPick
@@ -152,7 +155,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
             }
             if (k === 'alt') return [
               new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
-              new Style({ stroke: new Stroke({ color: '#f87171', width: 3, lineDash: [8, 6] }) }),
+              new Style({ stroke: new Stroke({ color: '#ff8a4c', width: 3, lineDash: [8, 6] }) }),
             ]
             if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
             if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
@@ -160,9 +163,9 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
           },
         }),
       ],
-      view: new View({ projection: MARS, center: [137.4, -4.6], resolution: 0.0012, minResolution: 360 / 512 / 2 ** 16 }),
+      view: new View({ projection: MARS, enableRotation: false, center: [137.4, -4.6], resolution: 0.0012, minResolution: 360 / 512 / 2 ** 16 }),
       // arrastrar mueve el mapa; clic = inicio, segundo clic = destino (sin doble clic para zoom)
-      interactions: defaultInteractions({ doubleClickZoom: false }),
+      interactions: defaultInteractions({ doubleClickZoom: false, altShiftDragRotate: false, pinchRotate: false }),
     })
     // clic: si toca un marcador de giro lo selecciona; si no, fija inicio/destino
     const click = (e) => {
@@ -170,6 +173,8 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
       if (f) return selRef.current?.(f.get('n'))
       pickRef.current('click', e.coordinate)
     }
+    const resizeObserver = new ResizeObserver(() => map.updateSize())
+    resizeObserver.observe(el.current)
     map.on('click', click)
     map.on('pointermove', (e) => { map.getViewport().style.cursor = map.hasFeatureAtPixel(e.pixel, { layerFilter: () => true, hitTolerance: 4 }) ? 'pointer' : '' })
     // recorrido real de Curiosity (referencia, independiente de nuestra ruta)
@@ -178,8 +183,11 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
       new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
       new Style({ stroke: new Stroke({ color: '#e879f9', width: 3 }) }),
     ] }))
-    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, curSrc }
+    const warningOverlay = new Overlay({ element: warningEl.current, positioning: 'top-left', offset: [18, 18], stopEvent: true, autoPan: { margin: 24, animation: { duration: 180 } } })
+    map.addOverlay(warningOverlay)
+    ref.current = { map, route, maskLayer, heatLayer, reliefLayer, curSrc, warningOverlay }
     return () => {
+      resizeObserver.disconnect()
       map.un('click', click)
       map.setTarget(undefined)
     }
@@ -199,15 +207,15 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
   }, [dem?.elev, dem?.slope, filter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // relieve del DEM (solo se recalcula si cambia la malla base, no la radiación) + encuadre inicial
-  const fitted = useRef(false)
+  const fitted = useRef(null)
   useEffect(() => {
     if (!dem) return
     const { reliefLayer, map } = ref.current
     reliefLayer.setSource(
       new ImageStatic({ url: reliefUrl(dem), projection: MARS, imageExtent: [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], interpolate: true }),
     )
-    if (!fitted.current) {
-      fitted.current = true
+    if (fitted.current !== dem.elev) {
+      fitted.current = dem.elev
       map.getView().fit([dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], { padding: [20, 20, 20, 20] })
     }
   }, [dem?.elev]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -234,25 +242,16 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
   useEffect(() => {
     if (!route?.cells.length || !dem) return
     const map = ref.current.map
-    const target = map.getTargetElement()
-    const bounds = target.getBoundingClientRect()
-    const app = target.closest('.screen-app')
-    const settings = app?.querySelector('.screen-settings')?.getBoundingClientRect()
-    const center = app?.querySelector('.screen-center')?.getBoundingClientRect()
-    const footer = app?.querySelector('.screen-footer')?.getBoundingClientRect()
-    const controlsLeft = Math.min(settings?.left ?? bounds.right, center?.left ?? bounds.right)
-    const controlsBottom = Math.max(settings?.bottom ?? bounds.top, center?.bottom ?? bounds.top)
-    const bottom = footer ? Math.max(32, bounds.bottom - footer.top + 24) : 32
-    const reserveRight = bounds.right - controlsLeft + 24
-    const wide = bounds.width - reserveRight >= 240
-    let padding = wide ? [32, reserveRight, bottom, 32] : [Math.max(32, controlsBottom - bounds.top + 24), 24, bottom, 24]
-    // Very short displays still need a positive usable map area.
-    if (padding[0] + padding[2] >= bounds.height - 64) padding = [24, 24, Math.min(bottom, bounds.height / 4), 24]
+    map.updateSize()
+    const bounds = map.getTargetElement().getBoundingClientRect()
+    const footer = map.getTargetElement().closest('.screen-app')?.querySelector('.screen-footer')?.getBoundingClientRect()
+    const bottom = footer ? Math.min(bounds.height * 0.25, Math.max(32, bounds.bottom - footer.top + 16)) : 32
     const line = new LineString(route.cells.map(([x, y]) => dem.lonLat(x, y)))
-    map.getView().cancelAnimations()
-    map.getView().fit(line.getExtent(), {
-      padding,
-      minResolution: Math.max(dem.lonMax - dem.lonMin, dem.latMax - dem.latMin) / 500,
+    const view = map.getView()
+    view.cancelAnimations()
+    view.fit(line.getExtent(), {
+      padding: [Math.min(144, bounds.height * 0.22), 40, bottom, 40],
+      minResolution: Math.max(1e-6, Math.min(dem.dLon, dem.dLat) / 8),
       duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500,
     })
   }, [route]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -279,18 +278,29 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
       src.addFeature(new Feature({ geometry: new Point(dem.lonLat(...x.at)), kind: 'why', n: x.n, color: REASONS[x.reason].color, selected: x.n === sel }))
   }, [dem, route, start, end, why, sel])
 
-  useEffect(() => {
-    const src = ref.current?.curSrc
-    if (!src) return
-    src.clear()
-    if (!curiosity?.length) { ref.current.curFitted = false; return }
-    const line = new LineString(curiosity)
-    src.addFeature(new Feature({ geometry: line }))
-    if (!ref.current.curFitted) { // acercar al recorrido solo la primera vez (no en cada cambio del recorte por sol)
-      ref.current.map.getView().fit(line.getExtent(), { padding: [120, 120, 120, 120], duration: 400 })
-      ref.current.curFitted = true
-    }
-  }, [curiosity])
 
-  return <><div ref={el} className="h-full w-full" /><button className="screen-center" disabled={!dem} onClick={() => ref.current.map.getView().fit([dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], { padding: [110, 48, 110, 48], duration: 350 })}>⌖ Centrar</button></>
+
+  useEffect(() => {
+    const overlay = ref.current.warningOverlay
+    if (!overlay) return
+    overlay.setPosition(selectedReason && dem ? dem.lonLat(...selectedReason.at) : undefined)
+  }, [selectedReason, dem])
+
+  useEffect(() => {
+    if (!centerRequest || !dem) return
+    const map = ref.current.map
+    map.updateSize()
+    const extent = route?.cells.length ? new LineString(route.cells.map(([x, y]) => dem.lonLat(x, y))).getExtent() : [dem.lonMin, dem.latMin, dem.lonMax, dem.latMax]
+    const height = map.getSize()[1]
+    map.getView().cancelAnimations()
+    map.getView().fit(extent, { padding: [Math.min(144, height * 0.22), 40, Math.min(120, height * 0.25), 40], minResolution: Math.max(1e-6, Math.min(dem.dLon, dem.dLat) / 8), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350 })
+
+  }, [centerRequest]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <><div ref={warningEl} className="route-warning" hidden={!selectedReason} role="region" aria-label="Route warning">
+    {selectedReason && <>
+      <div className="route-warning-heading"><strong>{selectedReason.n} · {REASONS[selectedReason.reason].label}</strong><button type="button" aria-label="Dismiss route warning" onClick={() => onSelect?.(sel)}>×</button></div>
+      <p>{selectedReason.text}</p>
+    </>}
+  </div><div ref={el} className="h-full w-full" /></>
 }

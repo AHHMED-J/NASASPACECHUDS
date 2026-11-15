@@ -4,7 +4,7 @@ import { Chart, LineElement, PointElement, LinearScale, CategoryScale, Filler, T
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip)
 
 export default function ElevationProfile({ dem, route }) {
-  if (!route) return <p className="text-xs text-slate-500">Sin ruta todavía.</p>
+  if (!route) return <p className="text-xs text-slate-500">No route selected yet.</p>
   const cellKm = dem.cellM / 1000
   let acc = 0
   const labels = route.cells.map((c, i) => {

@@ -17,7 +17,7 @@ export async function loadDem(prefix = 'gale') {
   const [metaRes, binRes, roughRes] = await Promise.all([
     fetch(`${base}data/${prefix}-dem.json`), fetch(`${base}data/${prefix}-dem.f32`), fetch(`${base}data/${prefix}-rough.f32`),
   ])
-  if (!metaRes.ok || !binRes.ok) throw new Error('No se pudo cargar el DEM (corre: npm run fetch-dem)')
+  if (!metaRes.ok || !binRes.ok) throw new Error('Could not load terrain data (run: npm run fetch-dem)')
   const meta = await metaRes.json()
   const elev = new Float32Array(await binRes.arrayBuffer())
   const rough = roughRes.ok ? new Float32Array(await roughRes.arrayBuffer()) : new Float32Array(elev.length).fill(NaN)
