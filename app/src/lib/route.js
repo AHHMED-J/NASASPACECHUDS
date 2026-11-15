@@ -1,8 +1,8 @@
 // A* sobre la malla del DEM con costo multi-factor (ver el panel "datos considerados" de la app).
 // Bloqueadas: más alto que el límite de altura, más empinadas que la pendiente máxima, sin dato, y esquinas diagonales.
-// Costo de un paso = distancia × ( 1 + preferencias por celda  +  esfuerzo(subida/bajada) ).
-import { SCALE } from './constants.js'
-import { effortRel, EFFORT_REL_MIN } from './effort.js'
+// Costo de un paso = distancia × ( 1 + Σ peso × riesgo ), con cada riesgo normalizado a 0..1 (0 = ideal, 1 = lo peor).
+// Así, peso 1 = en lo peor de ese factor, cada metro cuesta el doble que en terreno ideal.
+import { effortRisk } from './effort.js'
 
 // Heap binario con arreglos tipados (rápido para mallas de ~1 millón de celdas)
 class MinHeap {
@@ -55,9 +55,8 @@ function prepare(dem, filter, w) {
   let minStatic = Infinity
   for (let i = 0; i < n; i++) {
     if (!(elev[i] <= filter.maxElev) || !(slope[i] <= filter.maxSlope)) { cost[i] = Infinity; continue }
-    const v = 1 + w.rad * SCALE.rad * (radRisk[i] || 0) + w.rough * SCALE.rough * (roughRisk[i] || 0) +
-      w.comm * SCALE.comm * (commRisk[i] || 0) +
-      (w.sand || 0) * SCALE.sand * ((sandRisk && sandRisk[i]) || 0)
+    const v = 1 + w.rad * (radRisk[i] || 0) + w.rough * (roughRisk[i] || 0) + w.comm * (commRisk[i] || 0) +
+      (w.sand || 0) * ((sandRisk && sandRisk[i]) || 0)
     cost[i] = v
     if (v < minStatic) minStatic = v
   }
@@ -113,7 +112,7 @@ export function findRoute(dem, start, end, filter, w = { effort: 1, rad: 0, roug
       let step = cn
       if (wE > 0) {
         // esfuerzo según el gradiente del paso (subir cuesta más que bajar)
-        step += wE * (effortRel((elev[nb] - zc) / dist) - EFFORT_REL_MIN)
+        step += wE * effortRisk((elev[nb] - zc) / dist)
       }
       const ng = gc + dist * step
       if (ng < g[nb]) {
@@ -143,14 +142,14 @@ export function stepParts(dem, i, j, w) {
   const dist = cellM * len
   const p = {
     dist,
-    rad: dist * w.rad * SCALE.rad * (dem.radRisk[j] || 0),
-    rough: dist * w.rough * SCALE.rough * (dem.roughRisk[j] || 0),
-    comm: dist * w.comm * SCALE.comm * (dem.commRisk[j] || 0),
-    sand: dist * (w.sand || 0) * SCALE.sand * ((dem.sandRisk && dem.sandRisk[j]) || 0),
+    rad: dist * w.rad * (dem.radRisk[j] || 0),
+    rough: dist * w.rough * (dem.roughRisk[j] || 0),
+    comm: dist * w.comm * (dem.commRisk[j] || 0),
+    sand: dist * (w.sand || 0) * ((dem.sandRisk && dem.sandRisk[j]) || 0),
     effort: 0,
   }
   if (w.effort > 0) {
-    p.effort = dist * w.effort * (effortRel((elev[j] - elev[i]) / dist) - EFFORT_REL_MIN)
+    p.effort = dist * w.effort * effortRisk((elev[j] - elev[i]) / dist)
   }
   return p
 }

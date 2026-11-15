@@ -4,11 +4,42 @@ Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba
 
 ---
 
+## 2026-11-14 14:59 — Todos los factores normalizados de 0 a 1
+
+**Antes:** cada factor tenía una escala inventada por nosotros (radiación ×8, dunas ×6, rugosidad ×4, comunicación ×2). El esfuerzo iba de 0 a ~5.
+
+**Ahora:** todos van de **0 (ideal) a 1 (lo peor)** y se quitaron las escalas.
+
+- Esfuerzo: 0 = bajada suave, 1 = subir a 20° (nuestro límite). Caminar en plano ≈ 0.12.
+- Radiación, dunas, comunicación y rugosidad ya iban de 0 a 1; solo se quitó el multiplicador.
+
+**Cómo leerlo:** costo de cada metro = 1 + Σ peso × riesgo. Con peso 1, lo peor de un factor hace que ese metro cueste **el doble**.
+
+**Efecto en la comparación con Curiosity** (distancia media, con "Evitar dunas"):
+
+|                     | Antes   | Ahora       |
+| ------------------- | ------- | ----------- |
+| Sol 1500, DEM 50 m  | 0.27 km | **0.18 km** |
+| Sol 1500, DEM 200 m | 0.38 km | **0.25 km** |
+| Sol 5073, DEM 50 m  | 1.04 km | **0.39 km** |
+| Sol 5073, DEM 200 m | 0.38 km | 0.42 km     |
+
+Sin dunas casi no cambia (solo cuenta el relieve).
+
+---
+
+## 2026-11-14 14:55 — Corregidos 2 errores en las distancias de Curiosity
+
+En los datos de la NASA, dos soles tenían la distancia mal (**sol 1257 = 0 km** y **sol 3708 = 39.37 km**). Al cortar el recorrido en esos soles, la ruta de Curiosity salía vacía o completa. Ahora esos dos valores se descartan (`fetch-curiosity.mjs` y `curiosity-traverse.json`).
+
+---
+
 ## 2026-11-14 14:27 — La arena ahora viene del USGS (base de datos global de dunas)
 
 **Antes:** la arena era **estimada por nosotros** (zonas oscuras y lisas en la foto HiRISE). Solo cubría la zona de Curiosity.
 
 **Ahora:** usamos los **campos de dunas oficiales del USGS** (Mars Global Digital Dune Database, 2007). Cubren **todo el cráter**:
+
 - **1370-050**: incluye las dunas **Bagnold** (las que cruzó Curiosity), 425 km².
 - **1376-059**: arco de dunas al sur, 414 km².
 
@@ -18,11 +49,11 @@ Resumen simple de cada cambio. Hora del Pacífico (PST). Lo más nuevo va arriba
 
 **Efecto en la comparación con Curiosity** (distancia media a su recorrido):
 
-| | Sin dunas | Con dunas USGS |
-|---|---|---|
-| Sol 1500, DEM 50 m | 0.15 km | 0.27 km |
-| Sol 5073, DEM 50 m | 1.05 km | 1.04 km |
-| Sol 5073, DEM 200 m | 1.09 km | **0.38 km** |
+|                     | Sin dunas | Con dunas USGS |
+| ------------------- | --------- | -------------- |
+| Sol 1500, DEM 50 m  | 0.15 km   | 0.27 km        |
+| Sol 5073, DEM 50 m  | 1.05 km   | 1.04 km        |
+| Sol 5073, DEM 200 m | 1.09 km   | **0.38 km**    |
 
 A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Curiosity.
 
@@ -37,6 +68,7 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 **Idea:** de noche la arena suelta se enfría más rápido que la roca → debería verse más **oscura**.
 
 **Resultado:** pasa lo **contrario**. Las dunas Bagnold se ven **más tibias (claras)** que el terreno de alrededor:
+
 - En dunas: valor medio **177** (escala 0–255).
 - Fuera de dunas: valor medio **148**.
 - Los rangos se mezclan mucho (dunas 122–240, resto 103–184).
@@ -53,20 +85,22 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 
 **Causa:** en el cambio de las 13:33 quitamos la **"ladera de lado"** (era un supuesto nuestro).
 
-| | Antes (13:13) | Ahora (13:33) |
-|---|---|---|
-| Subidas (esfuerzo) | ✅ | ✅ |
-| Ladera de lado | ✅ (supuesto nuestro) | ❌ quitada |
-| Pendiente > 20° bloquea | ✅ | ✅ |
-| Arena (si se activa) | ✅ | ✅ |
+|                         | Antes (13:13)         | Ahora (13:33) |
+| ----------------------- | --------------------- | ------------- |
+| Subidas (esfuerzo)      | ✅                    | ✅            |
+| Ladera de lado          | ✅ (supuesto nuestro) | ❌ quitada    |
+| Pendiente > 20° bloquea | ✅                    | ✅            |
+| Arena (si se activa)    | ✅                    | ✅            |
 
 **Por qué cambia el lado:**
+
 - En "solo relieve" el piso del cráter es casi plano, así que **los dos lados cuestan casi lo mismo**.
 - Antes, la ladera de lado castigaba un poco el lado este (el terreno ahí está inclinado de lado) → la ruta prefería el oeste.
 - Sin ese castigo, solo cuenta **cuánto se sube**: por el este se suben ~24 m menos → la ruta se va al este. Eso dice el marcador ①.
 - Es una diferencia **muy pequeña** (24 m de subida en ~9 km): cualquier ajuste mínimo cambia el lado.
 
 **Comprobado** (DEM 200 m, sin arena, Curiosity hasta el sol 1700):
+
 - Antes: se desviaba al **oeste** (motivo: ladera de lado).
 - Ahora: se desvía al **este** (motivo: "ir derecho sube 24 m más").
 - Con el DEM de **50 m** sin arena pasa lo mismo: se va al **este** (por ahí se suben ~30 m menos).
@@ -77,40 +111,49 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 ---
 
 ## 2026-11-14 13:33 — Limpieza de código (`e6113f2`)
+
 - Quitada la **ortofoto** de la página.
 - Quitada la **ladera de lado** (era un supuesto).
 - La **sombra** ya no cuenta en la ruta; solo es una capa visual y se calcula solo si la miras.
 - Borrado código que no se usaba.
 
 ## 2026-11-14 13:13 — Explicación de los giros (`ef3df2b`)
+
 - Ahora es **clic en inicio + clic en destino** (antes: arrastrar).
 - Cada giro tiene un **número** y una **frase** que dice por qué (pendiente, subida, arena…).
 - Al tocar un número se ve en rojo el **camino recto que se descartó**.
 
 ## 2026-11-14 12:56 — Mejoras a la comparación con Curiosity (`3acafd5`)
+
 - **Corte por sol:** comparar solo hasta cierto día de la misión.
 - **DEM de 50 m** en la zona de Curiosity (más detalle).
 - **Mapa de arena** estimado con la foto HiRISE (solo zona de Curiosity).
 
 ## 2026-11-14 12:33 — Comparación con Curiosity (`fa1fcec`)
+
 - Casilla para ver el **recorrido real de Curiosity** (datos NASA/JPL).
 - En ese modo nuestra ruta usa **solo el relieve**.
 - Métricas: qué tan lejos queda nuestra ruta de la de Curiosity.
 
 ## 2026-11-14 12:22 — Opciones al final (`97bfc85`)
+
 - Estación y actividad solar movidas a un desplegable **"Opciones"** al final.
 
 ## 2026-11-14 12:20 — Mapa parejo (`94d88de`)
+
 - El mapa base por defecto es el **relieve** (la ortofoto solo cubría una parte).
 
 ## 2026-11-14 12:17 — Cráter completo (`b18da8e`)
+
 - El mapa ahora cubre **todo el cráter Gale** (DEM de 200 m).
 - La línea de vista con la base ya considera la **curvatura de Marte**.
 
 ## 2026-11-14 12:09 — Barra lateral más limpia (`8e9f071`)
+
 - Letra más legible, secciones agrupadas, mapa y curva de temperatura plegables.
 
 ## 2026-11-14 12:00 — Interfaz más simple (`a438e22`)
+
 - Pesos de la ruta **fijos** (sin sliders).
 - Distancia, tiempo y elevación en una tarjeta **arriba a la derecha** del mapa.
 - Etiqueta **"BASE"** en el triángulo.

@@ -14,9 +14,6 @@ export const CONST = {
   CELL_M: 200, // DEM del cráter completo; la zona de Curiosity también existe a 50 m (DEM de 1 m promediado)
 }
 
-// Escalas de preferencia: convierten "peso 1" del slider en un sobrecosto. NO son magnitudes físicas.
-export const SCALE = { rad: 8, rough: 4, comm: 2, sand: 6 }
-
 export const FIXED = [
   { id: 'slope', label: 'Pendiente máxima caminable', value: `${CONST.MAX_SLOPE_DEG}°`, kind: 'fuente',
     source: 'NASA, concepto de operaciones EVA lunar (Artemis, traje xEMU): caminar en pendientes de hasta 20° (Apollo 15 llegó a ~17°).',

@@ -39,7 +39,9 @@ Prototipo de HUD de navegación: mapa de Gale (NASA Trek vía OpenLayers), filtr
 ### Parámetros de la ruta (A*)
 **Constantes (no editables en la UI, ver `app/src/lib/constants.js`)**: pendiente máx. 20° (valor Artemis/xEMU lunar, supuesto), velocidad 2.7 km/h, excursión máx. 10 km (solo aviso), límite de dosis 600 mSv, rango térmico del traje 93–378 K (xEMU lunar; no hay límite de traje marciano publicado), base (Bradbury Landing), altura de antena 2 m, oblicuidad de Marte 25.19°, celda 200 m (cráter completo) o 50 m (zona de Curiosity).
 
-**Variables (barra lateral)**: hora local y altura máxima; en "Opciones": estación y actividad solar. Los pesos de la ruta son fijos (esfuerzo 1, radiación 2, rugosidad 1, comunicación 1, arena 1).
+**Variables (barra lateral)**: hora local y altura máxima; en "Opciones": estación y actividad solar. Los pesos de la ruta son fijos (esfuerzo 1, radiación 2, rugosidad 1, comunicación 1, dunas 1).
+
+**Normalización 0–1**: cada factor va de 0 (ideal) a 1 (lo peor) y el costo de cada metro es `1 + Σ peso × riesgo`; con peso 1, lo peor de un factor duplica el costo de ese metro. Escalas: radiación fija (0.60 → 0, 0.90 mSv/día → 1); esfuerzo fijo (0 = bajada suave ~-15 %, 1 = subir a 20°; plano ≈ 0.12); dunas = fracción de la celda en un campo USGS; comunicación 0/1; rugosidad relativa a la zona (percentil 95 = 1, no hay umbral físico publicado).
 
 **Factores en el costo**: campos de dunas del USGS (ver abajo); esfuerzo metabólico (polinomio de Minetti 2002, coeficientes de memoria, sin verificar contra el paper; gravedad terrestre); radiación (modelo Guo 2018); rugosidad (desviación estándar de alturas de 1 m tras quitar tendencia, relativa al p95; es un proxy, el DEM no resuelve rocas; `gale-rough.f32` vía `npm run fetch-dem`); comunicación (línea de vista a la base, viewshed); sol/sombra (posición solar + sombras del terreno). Bloqueo: altura > máx., pendiente > 20° o sin dato.
 

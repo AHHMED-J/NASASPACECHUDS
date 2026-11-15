@@ -1,4 +1,4 @@
-import { FIXED, CONST, SCALE } from '../lib/constants'
+import { FIXED, CONST } from '../lib/constants'
 import { SOLAR } from '../lib/radiation'
 import { SEASONS } from '../lib/temperature'
 
@@ -39,7 +39,7 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Altura máxima" kind="info">{maxElev} m. Filtro de misión: bloquea todo lo más alto. No es un límite físico; la altura ya pesa vía la radiación.</Row>
           <Row title="Prioridades" kind="info">
             Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · dunas {w.sand}.
-            Su escala (×{SCALE.rad} radiación, ×{SCALE.rough} rugosidad, ×{SCALE.comm} comunicación, ×{SCALE.sand} dunas) <b>no es una magnitud física</b>.
+            Cada factor está normalizado de 0 (ideal) a 1 (lo peor). Costo de cada metro = 1 + Σ peso × riesgo: con peso 1, lo peor de un factor hace que ese metro cueste el doble. Los pesos son una <b>decisión nuestra</b>, no una magnitud física.
           </Row>
           <Row title="Inicio y destino" kind="info">Los dos puntos que marcas con clic en el mapa.</Row>
         </ul>
@@ -83,6 +83,7 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Esfuerzo al subir y bajar" kind="modelo">
             Polinomio de Minetti et al. (2002) del costo metabólico al caminar según el gradiente. Coeficientes coherentes con valores publicados, pero no verificados contra el texto del artículo.
             Medido en la Tierra (1 g) y sin traje: en Marte (0.38 g) cambia.
+            En la ruta se normaliza de 0 a 1: 0 = bajada suave (lo más fácil), 1 = subir a {CONST.MAX_SLOPE_DEG}° (el límite). Caminar en plano ≈ 0.12.
           </Row>
           <Row title="Capa de sombras (solo visual)" kind="modelo">
             Posición del Sol (oblicuidad de Marte, latitud, estación y hora) y sombras del terreno desde el DEM. No influye en la ruta.

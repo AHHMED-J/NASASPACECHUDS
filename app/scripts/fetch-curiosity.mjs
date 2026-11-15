@@ -38,7 +38,15 @@ const last = wps.features[wps.features.length - 1].properties
 // distancia acumulada oficial al final de cada sol con movimiento (para recortar el recorrido "hasta el sol X")
 const bySol = new Map()
 for (const f of wps.features) { const q = f.properties; bySol.set(q.sol, [+q.dist_km, +(+q.lon).toFixed(6), +(+q.lat).toFixed(6)]) }
-const sols = [...bySol].sort((a, b) => a[0] - b[0]).map(([sol, v]) => [sol, ...v]) // [sol, km, lon, lat]
+const allSols = [...bySol].sort((a, b) => a[0] - b[0]).map(([sol, v]) => [sol, ...v]) // [sol, km, lon, lat]
+// Quita errores puntuales de dist_km en los datos (p. ej. sol 1257 = 0 km, sol 3708 = 39.37 km):
+// un valor que se aleja > 0.5 km de sus dos vecinos en la misma dirección
+const sols = allSols.filter((r, i) => {
+  const a = allSols[i - 1], b = allSols[i + 1]
+  if (!a || !b) return true
+  return !((r[1] - a[1] > 0.5 && r[1] - b[1] > 0.5) || (a[1] - r[1] > 0.5 && b[1] - r[1] > 0.5))
+})
+if (sols.length < allSols.length) console.log(`descartados ${allSols.length - sols.length} sols con dist_km erróneo`)
 const out = {
   source: 'NASA/JPL MSL MMGIS: MSL_traverse.json / MSL_waypoints.json', url: BASE + 'MSL_traverse.json',
   sol: last.sol, distKm: last.dist_km, points: pts.length, sols, coords,
