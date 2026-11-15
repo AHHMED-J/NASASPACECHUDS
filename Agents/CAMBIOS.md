@@ -6,6 +6,34 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-15 00:05 — PDF: sección de sales dañinas
+
+**Agente:** Claude
+
+`Agents/investigacion_datasets.pdf` pasa a 11 páginas con lo de `Agents/investigacion_sales.md`:
+- **Sección 8 nueva, "Sales dañinas":** tabla de perclorato, cloruros y sulfatos; detecciones de cloruro contra pendiente en Gale; números del catálogo de Hill y Christensen; el caso de Spirit; y lo que no se confirmó del chat con Gemini.
+- **Tabla de resultados (sección 4):** nueva fila "Depósitos de cloruro".
+- **Sección 7:** fila de depósitos de cloruro; el resumen menciona el cuarto dato opcional para las tierras altas del sur.
+- **Recomendaciones:** cloruros como capa opcional y perclorato como aviso de salud.
+- **No verificado y Fuentes:** puntos nuevos.
+
+Las secciones siguientes se renumeraron (9 a 11). Sin cambios en el código.
+
+---
+
+## 2026-11-14 23:56 — Investigación: sales dañinas
+
+**Agente:** Claude
+
+Nuevo `Agents/investigacion_sales.md`: perclorato, cloruros y sulfatos. Se verificó con fuentes cada afirmación de un chat con Gemini.
+- **Perclorato:** está en todo el suelo (0.05–1 %), pero no hay mapa y desde órbita no se detecta de forma confiable. No sirve como costo de ruta; es un tema de manejo del polvo.
+- **Cloruros:** el catálogo revisado de Hill y Christensen 2026 (1 605 polígonos, 96 % en el sur, ninguno en Gale) se podría usar como capa opcional con el mismo código de las dunas. La capa cruda de JMARS no sirve: sus detecciones siguen la pendiente (1.5 % en terreno plano contra 27.6 % arriba de 20°).
+- **Sulfatos:** Spirit quedó atascado en suelo con sulfatos, pero hoy no hay un mapa fino descargable (MOCAAS devuelve "410 Gone").
+
+Sin cambios en el código ni en el PDF.
+
+---
+
 ## 2026-11-14 23:37 — PDF: tabla de resultados alineada con la sección 7
 
 **Agente:** Claude
