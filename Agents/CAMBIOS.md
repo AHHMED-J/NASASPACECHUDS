@@ -6,6 +6,71 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-14 23:37 — PDF: tabla de resultados alineada con la sección 7
+
+**Agente:** Claude
+
+La tabla de la sección 4 del PDF (y la tabla de resumen de `Agents/investigacion_datasets.md`) solo marcaba "Sí" en el relieve. Ahora dice lo mismo que la sección 7:
+- Nueva fila **Dunas** (campos USGS): Sí, ya se usa.
+- La fila de Curiosity RAD pasa a **Radiación (por altura)**: Sí, ya se usa.
+- Inercia THEMIS: de "Parcial" a **Sí, para polvo (por agregar)**. Inercia TES: parcial, solo para zonas de más de ~30 km.
+- Nota debajo de la tabla que explica qué significa "¿Sirve?".
+
+---
+
+## 2026-11-14 23:35 — PDF: qué datos mueven la ruta
+
+**Agente:** Claude
+
+Nueva sección "Qué datos mueven la ruta" en `Agents/investigacion_datasets.pdf` (sección 7, el PDF pasa a 9 páginas) y en `Agents/investigacion_datasets.md` (sección 10):
+- La ruta usa **dos fuentes**: el relieve, que da cinco factores (pendiente, subida, radiación, rugosidad y línea de vista), y los campos de dunas del USGS.
+- La única capa nueva útil es la inercia térmica THEMIS (polvo, de 60°S a 60°N). El cloro, el magnetismo y la temperatura no cambian una ruta a pie.
+- Qué falta para usarlo fuera de Gale: el punto de partida de la radiación y la base completa de dunas.
+
+En recomendaciones se agregó "cargar la base global de dunas del USGS". Las secciones siguientes se renumeraron. Sin cambios en el código.
+
+---
+
+## 2026-11-14 23:30 — Investigación: alcance a todo Marte
+
+**Agente:** Claude
+
+La investigación se replanteó para **todo Marte** (Gale queda como zona de prueba). Nueva sección 9 en `Agents/investigacion_datasets.md` y sección 6 en el PDF:
+- Cobertura global de cada dataset (THEMIS 60°S–60°N, GRS ±57.5°, 24 recuadros THEMIS).
+- Desde qué tamaño de ruta sirve el cloro (~1 000 km).
+- Prueba con los campos de dunas del USGS de todo el planeta: la inercia térmica tampoco los marca (solo 27 % salen más bajos que su entorno). Sirve para polvo, no para dunas.
+- Lo que falta para un motor global (elegir recuadro, longitudes, "sin dato").
+
+Sin cambios en el código.
+
+
+## 2026-11-14 23:22 — PDF de la investigación
+
+**Agente:** Claude
+
+Nuevo `Agents/investigacion_datasets.pdf` (6 páginas): objetivo, método, resultados por dataset, hallazgos, recomendaciones para el plan de migración, lo no verificado y fuentes. Se corrigió en el .md una frase sobre la inercia térmica en dunas (TES más alta, THEMIS algo más baja). Sin cambios en el código.
+
+
+## 2026-11-14 23:20 — Investigación de datasets: segunda parte
+
+**Agente:** Claude
+
+En `Agents/investigacion_datasets.md`:
+- Verificada la inercia térmica de TES con valores reales: tampoco separa las dunas (salen más altas, 281 contra 233).
+- Nueva sección 8: el **servicio JMARS de la ASU** entrega muchas capas como números para cualquier recuadro, ya alineadas (cloro, inercia térmica, campo magnético Langlais 2018, rocas, rugosidad). Probado con 7 capas en Gale.
+- El efecto del campo magnético de la corteza sobre la dosis en el suelo sigue sin una fuente que lo mida.
+
+Sin cambios en el código.
+
+
+## 2026-11-14 18:22 — Investigación de datasets (paso 0)
+
+**Agente:** Claude
+
+Nuevo `Agents/investigacion_datasets.md`: revisión de los archivos que pide el plan (MOLA, cloro GRS, magnetismo MAG/ER, RAD, temperatura THEMIS, inercia térmica THEMIS y TES). Se leyó cada archivo real y se midieron sus valores en Gale. Resultado: solo el relieve y la inercia térmica tienen resolución útil; el cloro y el magnetismo tienen celdas de cientos de km, y no existe un mapa de temperatura. Sin cambios en el código.
+
+---
+
 ## 2026-11-14 18:04 — Plan de migración (sin cambios de código)
 
 **Agente:** Grok
