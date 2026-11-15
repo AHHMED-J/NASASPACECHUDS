@@ -4,3 +4,15 @@
 html, body, #root { height: 100%; margin: 0; }
 body { background: #05080f; color: #e6edf7; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
 .ol-viewport { cursor: crosshair; }
+
+/* Marco del dispositivo (DeviceFrame.jsx): la app vive en un lienzo fijo de 1280 × 1010 escalado dentro de la pantalla.
+   Las unidades vw/dvh del diseño se refieren a la ventana real, así que dentro del marco se cambian por medidas del lienzo. */
+.device-stage { position: fixed; inset: 0; overflow: hidden; background: #05080f; }
+.device-frame { position: absolute; } /* tamaño y posición en DeviceFrame.jsx */
+.device-photo { display: block; width: 100%; height: auto; user-select: none; pointer-events: none; }
+.device-screen { position: absolute; overflow: hidden; border-radius: 1.2% / 1.6%; background: #131321; }
+.device-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; contain: layout paint; }
+.device-canvas .screen-app { height: 100%; --admin-width: 0px; } /* sin panel Admin: el mapa ocupa toda la pantalla */
+.device-canvas .screen-app .screen-footer span { padding-left: 26px; padding-right: 26px; }
+.device-canvas .screen-app.admin-open .screen-footer span { padding-left: 26px; padding-right: 26px; }
+.device-canvas .route-warning { width: 560px; max-height: 962px; }

@@ -31,6 +31,9 @@ const LAYERS = [
 const Select = (props) => <select {...props} className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm" />
 const Title = ({ children }) => <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 
+// El panel Admin (barra negra con Admin y Center) no se muestra en la pantalla del dispositivo. Su código se conserva.
+const SHOW_ADMIN = false
+
 export default function App() {
   const [craterDem, setDem] = useState(null) // cráter completo, 200 m
   const [detailDem, setDetailDem] = useState(null) // zona de Curiosity, 50 m (del DEM de 1 m)
@@ -268,7 +271,7 @@ export default function App() {
         {panel === 'results' && stats && <dl className="detail-metrics"><div><dt>Estimated dose</dt><dd>{stats.doseMsv.toFixed(3)} mSv</dd></div><div><dt>Communication</dt><dd>{stats.visPct.toFixed(0)}%</dd></div><div><dt>Elevation</dt><dd>{stats.min} to {stats.max} m</dd></div></dl>}
       </aside>
 
-      <aside className="admin-sidebar" id="admin-sidebar" aria-label="Map controls and admin">
+      {SHOW_ADMIN && <aside className="admin-sidebar" id="admin-sidebar" aria-label="Map controls and admin">
         <div className="sidebar-actions"><button type="button" className="screen-admin" aria-expanded={adminOpen} aria-controls="admin-content" onClick={() => setAdminOpen(value => !value)}>Admin</button><button type="button" className="screen-center" disabled={!dem} onClick={() => setCenterRequest(value => value + 1)}>Center</button></div>
         {adminOpen && <div id="admin-content">
         <header className="admin-heading"><h2 id="admin-title">Admin</h2><button type="button" aria-label="Close admin sidebar" onClick={() => setAdminOpen(false)}>×</button></header>
@@ -305,7 +308,7 @@ export default function App() {
         </section>
         <section><h3>Data</h3><p>Data sources, models and team assumptions behind the route.</p><button type="button" onClick={() => setShowData(true)}>Data sources and assumptions</button></section>
         </div>}
-      </aside>
+      </aside>}
       <main className="screen-map" aria-label="Gale map">
 
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}

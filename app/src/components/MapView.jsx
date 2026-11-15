@@ -108,10 +108,9 @@ function reliefUrl(dem) {
 const pt = (color) =>
   new Style({ image: new CircleStyle({ radius: 7, fill: new Fill({ color }), stroke: new Stroke({ color: '#fff', width: 2 }) }) })
 
-const astronautStartStyle = new Style({
-  zIndex: 30,
-  image: new Icon({ src: astronautUrl, anchor: [0.5, 1], width: 80, height: 80, interpolate: false }),
-})
+const astronautIcon = new Icon({ src: astronautUrl, anchor: [0.5, 1], width: 120, height: 120, interpolate: false })
+const astronautStartStyle = new Style({ zIndex: 30, image: astronautIcon })
+const BLINK_MS = 2400 // un parpadeo lento: se desvanece y vuelve en 2.4 s
 
 function routeFeatureStyle(f) {
             const k = f.get('kind')
@@ -209,6 +208,18 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
 
   // Reapply current visual styles to an existing map after React hot updates.
   useEffect(() => { ref.current.routeLayer?.setStyle(routeFeatureStyle) })
+  // El astronauta parpadea lentamente (opacidad 1 -> 0.3 -> 1). Se omite si el sistema pide reducir movimiento.
+  useEffect(() => {
+    if (!start || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf
+    const tick = (t) => {
+      astronautIcon.setOpacity(0.65 + 0.35 * Math.cos((2 * Math.PI * t) / BLINK_MS))
+      ref.current.routeLayer?.changed()
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); astronautIcon.setOpacity(1); ref.current.routeLayer?.changed() }
+  }, [start])
 
   // máscara de filtro
   useEffect(() => {
@@ -260,14 +271,16 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
     if (!route?.cells.length || !dem) return
     const map = ref.current.map
     map.updateSize()
-    const bounds = map.getTargetElement().getBoundingClientRect()
-    const footer = map.getTargetElement().closest('.screen-app')?.querySelector('.screen-footer')?.getBoundingClientRect()
-    const bottom = footer ? Math.min(bounds.height * 0.25, Math.max(32, bounds.bottom - footer.top + 16)) : 32
+    const target = map.getTargetElement()
+    const bounds = target.getBoundingClientRect()
+    const k = bounds.height / (target.offsetHeight || bounds.height) || 1 // escala CSS del marco del dispositivo
+    const footer = target.closest('.screen-app')?.querySelector('.screen-footer')?.getBoundingClientRect()
+    const bottom = footer ? Math.min(target.offsetHeight * 0.25, Math.max(32, (bounds.bottom - footer.top) / k + 16)) : 32
     const line = new LineString(route.cells.map(([x, y]) => dem.lonLat(x, y)))
     const view = map.getView()
     view.cancelAnimations()
     view.fit(line.getExtent(), {
-      padding: [Math.min(144, bounds.height * 0.22), 40, bottom, 40],
+      padding: [Math.min(144, target.offsetHeight * 0.22), 40, bottom, 40],
       minResolution: Math.max(1e-6, Math.min(dem.dLon, dem.dLat) / 8),
       duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500,
     })

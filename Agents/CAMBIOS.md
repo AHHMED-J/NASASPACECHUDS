@@ -6,6 +6,32 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-15 12:31 — Dispositivo más grande y astronauta que parpadea
+
+**Agente:** Claude
+
+- **Tamaño del dispositivo:** la foto se acerca unas 1.23 veces, igual que en la captura del equipo. La pantalla del dispositivo ocupa cerca del 38 % del ancho y el 45 % del alto de la ventana, y se recortan los bordes de la foto. Si la ventana es más ancha o más alta, se ve más foto alrededor (`DeviceFrame.jsx`, recorte `VIEW`).
+- **Astronauta:** el marcador de inicio pasa de 80 a 120 px y parpadea lentamente: se desvanece hasta 30 % y vuelve en 2.4 s. No parpadea si el sistema pide reducir el movimiento (`MapView.jsx`).
+- **Sin cambios en los datos ni en el cálculo de rutas.** Comprobado en el navegador, sin errores en consola.
+
+## 2026-11-15 12:22 — Sin panel Admin en la pantalla del dispositivo
+
+**Agente:** Claude
+
+- **Panel oculto:** la barra negra del panel Admin, con los botones Admin y Center, ya no se muestra. El mapa ocupa toda la pantalla del dispositivo. Su código queda en `App.jsx` detrás de `SHOW_ADMIN = false`, por si se quiere recuperar.
+- **Lo que deja de estar accesible:** la lista "Why this route" del panel (los números sobre el mapa siguen abriendo su explicación), los controles de terreno, mapa y ambiente, la comparación con Curiosity, el panel de datos y el botón Center.
+- **Sin cambios en los datos ni en el cálculo de rutas.** Comprobado en el navegador: la ruta se calcula al tocar el mapa y no hay errores en consola.
+
+## 2026-11-15 12:14 — La app se ve dentro del dispositivo de muñeca del astronauta
+
+**Agente:** Claude
+
+- **Marco fijo:** la página muestra la foto del dispositivo en el brazo del traje (`app/src/assets/device-frame.jpg`). La app se dibuja dentro de la pantalla azul de la foto.
+- **Cómo cabe:** la app se dibuja siempre en un lienzo de 1280 × 1010 px, con la misma proporción que la pantalla de la foto, y se reduce con CSS hasta el tamaño de esa pantalla. Si la ventana cambia de tamaño, el marco y la app se ajustan juntos. Componente nuevo: `app/src/components/DeviceFrame.jsx`; se usa en `main.jsx`.
+- **Ajustes de estilo:** el diseño usaba medidas de la ventana (`100dvh`, `55vw`, `100vw`). Dentro del marco se cambian por medidas del lienzo (al final de `index.css`). El encuadre automático de la ruta en `MapView.jsx` ahora descuenta la escala.
+- **Sin cambios en los datos ni en el cálculo de rutas.** Los botones de la foto (MENU, CENTER, BACK y las flechas) son parte de la imagen y todavía no hacen nada.
+- **Comprobado en el navegador:** la ruta se calcula al tocar el mapa (93.3 km, 34.6 h), el marcador cae donde se toca, y el panel Admin y el de datos se abren dentro de la pantalla. Sin errores en consola.
+
 ## 2026-11-15 11:59 — Diseño de la rama `screen` integrado (merge sin commit)
 
 **Agente:** Claude

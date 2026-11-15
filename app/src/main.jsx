@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import DeviceFrame from './components/DeviceFrame.jsx'
 
 // Remove temporary Figma capture parameters while preserving unrelated URL state.
 const captureParams = new URLSearchParams(window.location.hash.slice(1))
@@ -14,6 +15,8 @@ if (captureParams.has('figmacapture')) {
 }
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <DeviceFrame>
+      <App />
+    </DeviceFrame>
   </StrictMode>,
 )
