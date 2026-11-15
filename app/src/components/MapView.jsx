@@ -3,6 +3,7 @@ import proj4 from 'proj4'
 import { register } from 'ol/proj/proj4'
 import { get as getProjection } from 'ol/proj'
 import Map from 'ol/Map'
+import { defaults as defaultControls } from 'ol/control/defaults'
 import { defaults as defaultInteractions } from 'ol/interaction/defaults'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
@@ -120,6 +121,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     const reliefLayer = new ImageLayer({ opacity: 1 })
     const map = new Map({
       target: el.current,
+      controls: defaultControls({ zoom: false }),
       layers: [
         new TileLayer({
           source: new XYZ({
@@ -138,7 +140,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
           source: route,
           style: (f) => {
             const k = f.get('kind')
-            if (k === 'line') return new Style({ stroke: new Stroke({ color: '#22d3ee', width: 4 }) })
+            if (k === 'line') return new Style({ stroke: new Stroke({ color: '#46F0D2', width: 4 }) })
             if (k === 'straight') return new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.7)', width: 2, lineDash: [6, 6] }) })
             if (k === 'why') {
               const on = f.get('selected')
@@ -154,7 +156,7 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
             ]
             if (k === 'hot') return new Style({ image: new RegularShape({ points: 4, radius: 9, radius2: 0, angle: Math.PI / 4, stroke: new Stroke({ color: '#f87171', width: 4 }) }) })
             if (k === 'base') return new Style({ image: new RegularShape({ points: 3, radius: 9, fill: new Fill({ color: '#38bdf8' }), stroke: new Stroke({ color: '#fff', width: 2 }) }), text: new Text({ text: 'BASE', offsetY: 18, font: 'bold 11px sans-serif', fill: new Fill({ color: '#fff' }), stroke: new Stroke({ color: '#0f172a', width: 3 }) }) })
-            return pt(k === 'start' ? '#22c55e' : '#f59e0b')
+            return pt(k === 'start' ? '#46F0D2' : '#FBE2B4')
           },
         }),
       ],
@@ -264,5 +266,5 @@ export default function MapView({ dem, layer, basemap, filter, route, start, end
     }
   }, [curiosity])
 
-  return <div ref={el} className="h-full w-full" />
+  return <><div ref={el} className="h-full w-full" /><button className="screen-center" disabled={!dem} onClick={() => ref.current.map.getView().fit([dem.lonMin, dem.latMin, dem.lonMax, dem.latMax], { padding: [110, 48, 110, 48], duration: 350 })}>⌖ Centrar</button></>
 }

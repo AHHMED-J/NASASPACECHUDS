@@ -10,7 +10,7 @@ import { shadeMap } from './lib/sun'
 import { effortRel } from './lib/effort'
 import { CONST } from './lib/constants'
 import { findRoute, isBlocked } from './lib/route'
-import { explainRoute, REASONS } from './lib/explain'
+import { explainRoute } from './lib/explain'
 import { loadCuriosity, compareRoutes, cutAtSol, solDate } from './lib/curiosity'
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
@@ -52,6 +52,19 @@ export default function App() {
   const [start, setStart] = useState(null)
   const [end, setEnd] = useState(null)
   const [showData, setShowData] = useState(false)
+  const [panel, setPanel] = useState(null)
+  const [picking, setPicking] = useState(null)
+  const panelTrigger = useRef(null)
+  const panelClose = useRef(null)
+  const closePanel = () => { setPanel(null); panelTrigger.current?.focus() }
+  const openPanel = (name, event) => { panelTrigger.current = event.currentTarget; setPanel(name) }
+  useEffect(() => {
+    if (!panel) return
+    panelClose.current?.focus()
+    const escape = (event) => { if (event.key === 'Escape') { setPanel(null); panelTrigger.current?.focus() } }
+    window.addEventListener('keydown', escape)
+    return () => window.removeEventListener('keydown', escape)
+  }, [panel])
 
   useEffect(() => { loadDem().then(setDem).catch((e) => setError(e.message)) }, [])
   useEffect(() => { loadTemp().then(setTemp).catch((e) => setError(e.message)) }, [])
@@ -115,8 +128,8 @@ export default function App() {
     if (!dem) return
     const c = dem.cellOf(lon, lat)
     if (!c) return
-    if (!start || end) { setStart(c); setEnd(null) }
-    else setEnd(c)
+    if (picking === 'start' || (!picking && (!start || end))) { setStart(c); setEnd(null); setPicking('end') }
+    else { setEnd(c); setPicking(null) }
   }
   const blockedEnd = dem && start && end && (isBlocked(dem, start[1] * dem.w + start[0], filter) || isBlocked(dem, end[1] * dem.w + end[0], filter))
 
@@ -178,30 +191,37 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-full flex-col md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col gap-6 overflow-y-auto border-b border-white/10 bg-[#0a0f1a] p-5 md:w-80 md:border-b-0 md:border-r">
-        <header className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-base font-semibold text-cyan-300">Mars Route</h1>
-            <p className="text-xs text-slate-500">Gale · navegación EVA</p>
-          </div>
-          <button className="rounded-md border border-white/15 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => setShowData(true)}>Datos considerados</button>
-        </header>
+    <div className="screen-app">
+      <button className="screen-settings" onClick={(e) => openPanel('settings', e)}>Ajustes</button>
+      {picking && <div className="screen-picking" role="status"><span>{picking === 'start' ? 'Selecciona el inicio' : 'Selecciona el destino'}</span><button onClick={() => setPicking(null)}>Cancelar</button></div>}
+      {panel && <button className="sheet-backdrop" aria-label="Cerrar panel" onClick={closePanel} />}
 
-        <section>
+      <aside className="screen-sheet" hidden={!panel} aria-labelledby="sheet-heading" onKeyDown={(event) => {
+        if (event.key !== 'Tab') return
+        const focusable = [...event.currentTarget.querySelectorAll('button, input, select, summary, a[href]')].filter(el => el.getClientRects().length && !el.disabled)
+        const first = focusable[0], last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }} role="dialog" aria-modal={panel ? 'true' : undefined}>
+        <header className="sheet-heading"><h2 id="sheet-heading">{{plan: 'Planificar ruta', layers: 'Mapa y capas', results: 'Resultados', settings: 'Ajustes'}[panel]}</h2><button ref={panelClose} onClick={closePanel} aria-label="Cerrar panel">Cerrar ✕</button></header>
+
+        <section hidden={panel !== 'settings'}>
           <Title>Escenario</Title>
           <div className="space-y-4">
             <TemperatureCard temp={temp} ls={ls} hour={hour} setHour={setHour} />
           </div>
         </section>
 
-        <section>
+        <section hidden={panel !== 'plan'}>
           <Title>Ruta</Title>
+          <div className="point-controls">
+            {[['start', 'Inicio', start], ['end', 'Destino', end]].map(([id, label, cell]) => <button key={id} disabled={!dem} onClick={() => { setPicking(id); closePanel() }}><span>{label}</span><small>{cell && dem ? dem.lonLat(...cell).map(v => v.toFixed(3) + '°').join(', ') : 'Elegir en el mapa'}</small></button>)}
+          </div>
+
           <label className="mb-4 block text-sm">
             <div className="flex items-baseline justify-between"><span className="text-slate-400">Altura máxima</span><b className="text-base text-cyan-300">{maxElev} m</b></div>
             <input type="range" className="mt-1 w-full accent-cyan-400" min={baseDem?.elevMin ?? -4500} max={baseDem?.elevMax ?? 0} step={50} value={maxElev} onChange={(e) => setMaxElevSel(+e.target.value)} />
           </label>
-          <p className="text-sm text-slate-400">Haz clic en el <b className="text-green-400">inicio</b> y luego en el <b className="text-amber-400">destino</b>. <span className="text-slate-500">Arrastrar mueve el mapa.</span></p>
           {noRoute && <p className="mt-2 text-sm text-red-400">{blockedEnd ? 'El inicio o el destino cae en zona bloqueada.' : 'No hay camino con estos límites. Sube la altura máxima.'}</p>}
           {stats && (
             <div className="mt-3 space-y-1.5">
@@ -209,43 +229,26 @@ export default function App() {
               {warnings.map((m) => <p key={m} className="rounded-md bg-amber-400/10 px-2.5 py-1.5 text-xs text-amber-300">{m}</p>)}
             </div>
           )}
-          {(start || end) && <button className="mt-3 rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => { setStart(null); setEnd(null) }}>Reiniciar</button>}
+          {(start || end) && <button className="mt-3 rounded-md border border-white/15 px-3 py-1 text-xs text-slate-300 hover:bg-white/10" onClick={() => { setStart(null); setEnd(null); setPicking(null) }}>Reiniciar</button>}
         </section>
 
         {route && why && (
-          <section>
+          <section hidden={panel !== 'results'}>
             <Title>Por qué esta ruta</Title>
             {why.items.length === 0 ? (
               <p className="text-sm text-slate-400">Va prácticamente derecho: ningún desvío importante.</p>
             ) : (
-              <>
-                <div className="mb-2 flex flex-wrap gap-1.5">
-                  {Object.entries(why.summary).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
-                    <span key={k} className="rounded-full px-2 py-0.5 text-[11px] text-white" style={{ background: REASONS[k].color + 'cc' }}>{REASONS[k].icon} {REASONS[k].label} ×{n}</span>
-                  ))}
-                </div>
-                <ol className="space-y-1.5">
-                  {why.items.map((it) => (
-                    <li key={it.n}>
-                      <button onClick={() => setSel(sel === it.n ? null : it.n)} className={`flex w-full gap-2 rounded-md px-2 py-1.5 text-left text-xs ${sel === it.n ? 'bg-white/15 text-slate-100' : 'text-slate-300 hover:bg-white/5'}`}>
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: REASONS[it.reason].color }}>{it.n}</span>
-                        <span>{it.text}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <p className="mt-2 text-[11px] text-slate-500">Toca un número (aquí o en el mapa) para ver en rojo el camino recto que se descartó.</p>
-              </>
+              <div className="space-y-3">{why.items.map(it => <p key={it.n} className="text-sm leading-relaxed">{it.text}</p>)}</div>
             )}
           </section>
         )}
 
-        <section className="shrink-0">
+        <section hidden={panel !== 'results'}>
           <Title>Perfil de elevación</Title>
           <div className="h-40">{dem && <ElevationProfile dem={dem} route={route} />}</div>
         </section>
 
-        <section>
+        <section hidden={panel !== 'settings'}>
           <Title>Comparar con Curiosity</Title>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="accent-fuchsia-400" checked={bench} onChange={(e) => setBench(e.target.checked)} />
@@ -281,7 +284,7 @@ export default function App() {
           )}
         </section>
 
-        <details className="shrink-0 text-sm">
+        <details open hidden={panel !== 'layers'} className="screen-options">
           <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">Mapa</summary>
           <div className="mt-3 space-y-3">
             <label className="block"><span className="text-slate-400">Mapa base</span>
@@ -298,7 +301,7 @@ export default function App() {
             <p className="text-[11px] text-slate-500"><span className="text-red-300/80">■</span> bloqueado (muy alto o &gt;{CONST.MAX_SLOPE_DEG}°) · <span className="text-slate-400">■</span> sin dato · <span className="text-sky-300">▲</span> base</p>
           </div>
         </details>
-        <details className="shrink-0 text-sm">
+        <details open hidden={panel !== 'settings'} className="screen-options">
           <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">Opciones</summary>
           <div className="mt-3 space-y-3">
             <label className="block"><span className="text-slate-400">Estación</span>
@@ -313,21 +316,17 @@ export default function App() {
             </label>
           </div>
         </details>
+        {panel === 'settings' && <nav className="flex flex-wrap gap-2 mb-4" aria-label="Herramientas"><button onClick={() => setPanel('plan')}>Planificar ruta</button><button onClick={() => setPanel('layers')}>Mapa y capas</button><button onClick={() => setPanel('results')}>Resultados</button></nav>}
+        {panel === 'settings' && <button onClick={() => { setShowData(true); closePanel() }}>Datos considerados</button>}
+        {panel === 'results' && !route && <p>Planifica una ruta para consultar sus resultados.</p>}
+        {panel === 'results' && stats && <dl className="detail-metrics"><div><dt>Dosis estimada</dt><dd>{stats.doseMsv.toFixed(3)} mSv</dd></div><div><dt>Comunicación</dt><dd>{stats.visPct.toFixed(0)}%</dd></div><div><dt>Elevación</dt><dd>{stats.min} a {stats.max} m</dd></div></dl>}
       </aside>
 
-      <main className="relative min-h-0 flex-1">
+      <main className="screen-map" aria-label="Mapa de Gale">
         {error && <div className="absolute z-10 m-3 rounded bg-red-900 p-3 text-sm">{error}</div>}
-        {stats && (
-          <dl className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-x-4 rounded-lg border border-white/10 bg-[#0a0f1a]/90 px-3 py-2 backdrop-blur">
-            {[
-              ['Distancia', `${stats.km.toFixed(1)} km`],
-              ['Tiempo a pie', `${stats.timeH.toFixed(1)} h`],
-              ['Elevación', `${stats.min} a ${stats.max} m`],
-            ].map(([k, v]) => <div key={k}><dt className="text-[11px] text-slate-400">{k}</dt><dd className="text-base text-cyan-300">{v}</dd></div>)}
-          </dl>
-        )}
         <MapView curiosity={bench ? curCut?.coords : null} dem={dem} layer={layer} basemap={basemap} filter={filter} route={route} start={start} end={end} onPick={onPick} why={route ? why : null} sel={sel} onSelect={(n) => setSel((s) => (s === n ? null : n))} />
       </main>
+      <footer className="screen-footer"><button onClick={(e) => openPanel('results', e)} aria-label="Ver resultados de la ruta"><span><strong aria-label="Distancia">{stats ? stats.km.toFixed(1) : '0'} km</strong></span><span><strong aria-label="Tiempo a pie">{stats ? stats.timeH.toFixed(1) : '0'} hrs</strong></span></button></footer>
 
       {showData && (
         <DataPanel onClose={() => setShowData(false)}

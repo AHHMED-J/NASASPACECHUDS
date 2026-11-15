@@ -223,3 +223,42 @@ A 200 m (todo el cráter), evitar las dunas acerca mucho nuestra ruta a la de Cu
 - Pesos de la ruta **fijos** (sin sliders).
 - Distancia, tiempo y elevación en una tarjeta **arriba a la derecha** del mapa.
 - Etiqueta **"BASE"** en el triángulo.
+
+## 2026-11-15 01:08 — Codex — Interfaz compacta (branch screen)
+Mapa a pantalla completa sin sidebar permanente. Controles Planificar, Capas, Resultados y Ajustes abren panel inferior con cierre, Escape y manejo de foco. Conservadas funciones de escenario, filtros, Curiosity, elevación, explicaciones y datos considerados. Selección de inicio/destino explícita; métricas reales de distancia/tiempo siempre disponibles. Botón para centrar en cobertura del DEM. Diseño adaptable a pantalla pequeña y orientación horizontal. Nuevo archivo: app/src/screen.css. Modificados: App.jsx, components/MapView.jsx, index.css y este registro. Sin commits ni push.
+
+
+## 2026-11-15 01:15 — Codex — Limpieza de controles en screen
+Retirados botones flotantes Planificar, Capas y Resultados y texto Ver detalles. Las herramientas siguen accesibles desde Ajustes; se mantienen distancia y tiempo. Sin archivos nuevos.
+
+
+## 2026-11-15 01:17 — Codex — Ajustes flotante
+Eliminada barra superior completa (título, subtítulo y estado Mapa listo). Se conserva únicamente el botón Ajustes sobre Centrar, también en horizontal. Sin archivos nuevos.
+
+
+## 2026-11-15 01:19 — Codex — Resumen por unidades
+Eliminados títulos Distancia/Tiempo a pie y guiones del resumen inferior. Se muestran valores con km y hrs; antes de calcular una ruta, 0 km y 0 hrs. Sin archivos nuevos.
+
+
+## 2026-11-15 01:25 — Codex — Selección directa como main
+Restaurada selección de ruta directamente sobre el mapa sin activar Planificar: primer clic inicio, segundo destino, siguiente clic inicia otra ruta. Arrastrar conserva el desplazamiento como en main. Se conserva selección explícita desde Ajustes. Sin archivos nuevos.
+
+
+## 2026-11-15 01:28 — Codex — Botones grandes
+Ajustes y Centrar ampliados a 160 x 72 px con texto de 20 px y separación de 16 px; zoom ampliado a 64 x 64 px con símbolos de 30 px. Ajustadas posiciones para conservar separación del resumen y orientación horizontal. Sin archivos nuevos.
+
+
+## 2026-11-15 01:29 — Codex — Escala 1.5x
+Botones Ajustes/Centrar ampliados de 160x72 a 240x108 px, texto de 20 a 30 px. Zoom de 64 a 96 px. Valores km/hrs de 22 a 33 px. Ajustados espacios para evitar superposición. Sin archivos nuevos.
+
+
+## 2026-11-15 01:30 — Codex — Retirar controles de zoom
+Desactivados botones + y − mediante la configuración de controles de OpenLayers. Se conserva zoom por rueda y gesto táctil. Sin archivos nuevos.
+
+
+## 2026-11-15 01:33 — Codex — Acciones arriba a la derecha
+Movidos Ajustes y Centrar a la esquina superior derecha en todas las orientaciones, conservando tamaño y separación. Sin archivos nuevos.
+
+
+## 2026-11-15 01:45 — Codex — Revisión CSS Lovable
+Integrado CSS proporcionado por usuario en screen.css: cristal translúcido, botones redondeados, icono Ajustes y resumen central con acentos. Variables limitadas a screen-app y controles OpenLayers a screen-map. Conservados botones grandes, foco visible, áreas seguras, tamaños táctiles, controles existentes de panel y capas de modales; ajustes responsivos y movimiento reducido. Sin cambios JSX, cálculos o datos. Sin archivos adicionales en el proyecto.
