@@ -6,6 +6,15 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-15 13:15 — Las tarjetas de cada giro se ven completas dentro del dispositivo
+
+**Agente:** Claude
+
+- **Problema:** al tocar un número de la ruta cerca del borde derecho, la tarjeta con la explicación del desvío quedaba cortada por la orilla de la pantalla.
+- **Causa:** el ajuste automático de OpenLayers (`autoPan`), que mueve el mapa para que la tarjeta quepa, mezcla medidas de la ventana real con medidas sin escalar. Con la app reducida dentro del dispositivo calculaba mal.
+- **Solución:** se quitó el `autoPan`. La tarjeta se abre hacia el lado del mapa con más espacio: a la izquierda si el número está en la mitad derecha, hacia arriba si está en la mitad de abajo. Se recalcula cuando el mapa se mueve (`MapView.jsx`).
+- **Comprobado en el navegador:** en una ruta de 8 giros, las 8 tarjetas se abren completas dentro de la pantalla. Sin errores en consola. Sin cambios en los datos ni en el cálculo de rutas.
+
 ## 2026-11-15 12:31 — Dispositivo más grande y astronauta que parpadea
 
 **Agente:** Claude

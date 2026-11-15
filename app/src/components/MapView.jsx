@@ -195,7 +195,7 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
       new Style({ stroke: new Stroke({ color: 'rgba(15,23,42,.8)', width: 6 }) }),
       new Style({ stroke: new Stroke({ color: '#e879f9', width: 3 }) }),
     ] }))
-    const warningOverlay = new Overlay({ element: warningEl.current, positioning: 'top-left', offset: [18, 18], stopEvent: true, autoPan: { margin: 24, animation: { duration: 180 } } })
+    const warningOverlay = new Overlay({ element: warningEl.current, positioning: 'top-left', offset: [18, 18], stopEvent: true })
     map.addOverlay(warningOverlay)
     const routeLayer = map.getLayers().getArray().find(layer => layer.getSource() === route)
     ref.current = { routeLayer, map, route, maskLayer, heatLayer, reliefLayer, curSrc, warningOverlay }
@@ -327,7 +327,21 @@ export default function MapView({ centerRequest, dem, layer, basemap, filter, ro
   useEffect(() => {
     const overlay = ref.current.warningOverlay
     if (!overlay) return
-    overlay.setPosition(selectedReason && dem ? dem.lonLat(...selectedReason.at) : undefined)
+    const at = selectedReason && dem ? dem.lonLat(...selectedReason.at) : undefined
+    overlay.setPosition(at)
+    if (!at) return
+    // La tarjeta se abre hacia el lado del mapa con más espacio (el autoPan de OpenLayers falla con el marco escalado).
+    const map = ref.current.map
+    const place = () => {
+      const px = map.getPixelFromCoordinate(at), size = map.getSize()
+      if (!px || !size) return
+      const right = px[0] > size[0] / 2, below = px[1] > size[1] / 2
+      overlay.setPositioning(`${below ? 'bottom' : 'top'}-${right ? 'right' : 'left'}`)
+      overlay.setOffset([right ? -18 : 18, below ? -18 : 18])
+    }
+    place()
+    map.on('moveend', place)
+    return () => map.un('moveend', place)
   }, [selectedReason, dem])
 
   useEffect(() => {
