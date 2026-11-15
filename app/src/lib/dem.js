@@ -1,6 +1,12 @@
-// Carga del DEM (Float32 binario, NaN = sin dato) y utilidades de celdas / pendiente.
+// Carga del DEM y utilidades de celdas / pendiente.
+// Cráter completo ('gale'): mapas GeoTIFF locales (gale_elevacion.tif y gale_suelo.tif, creados con `npm run fetch-mapas`).
+// Zona de Curiosity ('gale50'): DEM de 1 m promediado a 50 m (Float32 binario, `npm run fetch-dem-1m`).
 import { simulate } from './radiation.js'
 import { viewshed } from './comm.js'
+import { loadTif } from './mapManager.js'
+import { CONST } from './constants.js'
+
+const R_MARS = 3396190
 
 // Campos de dunas del USGS (MGD3), polígonos lon/lat compartidos por ambos DEM
 let dunes = null
@@ -11,18 +17,69 @@ async function loadDunes(base) {
   return dunes
 }
 
-/** prefix 'gale' = cráter completo (200 m), 'gale50' = zona de Curiosity (50 m, del DEM de 1 m) */
+// Inercia térmica THEMIS (opcional: si falta el archivo, el factor de polvo queda en 0)
+const loadSoil = () => loadTif('gale_suelo.tif').catch(() => null)
+
+// Rugosidad: desviación estándar (m) de los residuos respecto a un plano ajustado en ventanas de 3×3 celdas.
+export function roughness3x3(elev, w, h) {
+  const rough = new Float32Array(w * h).fill(NaN)
+  for (let y = 1; y < h - 1; y++)
+    for (let x = 1; x < w - 1; x++) {
+      let n = 0, sz = 0, sx = 0, sy = 0
+      for (let dy = -1; dy <= 1 && n >= 0; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const z = elev[(y + dy) * w + x + dx]
+        if (Number.isNaN(z)) { n = -1; break }
+        n++; sz += z; sx += dx * z; sy += dy * z
+      }
+      if (n !== 9) continue
+      // plano z = a + b·dx + c·dy en malla simétrica: b = Σdx·z/6, c = Σdy·z/6
+      const b = sx / 6, c = sy / 6, mean = sz / 9
+      let ss = 0
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const e = elev[(y + dy) * w + x + dx] - (mean + b * dx + c * dy); ss += e * e }
+      rough[y * w + x] = Math.sqrt(ss / 9)
+    }
+  return rough
+}
+
+/** prefix 'gale' = cráter completo (200 m, GeoTIFF local), 'gale50' = zona de Curiosity (50 m, del DEM de 1 m) */
 export async function loadDem(prefix = 'gale') {
   const base = import.meta.env.BASE_URL
+  if (prefix === 'gale') {
+    const [map, soil, duneGeo] = await Promise.all([loadTif('gale_elevacion.tif'), loadSoil(), loadDunes(base)])
+    const { w, h, bbox, dLon, data: elev } = map
+    let elevMin = Infinity, elevMax = -Infinity, valid = 0
+    for (const v of elev) if (!Number.isNaN(v)) { valid++; if (v < elevMin) elevMin = v; if (v > elevMax) elevMax = v }
+    const meta = { w, h, bbox, cellM: Math.round(dLon * ((Math.PI * R_MARS) / 180)), elevMin, elevMax, validFraction: valid / (w * h),
+      source: 'USGS Mars MGS MOLA - MEX HRSC Blended DEM Global 200m v2, ventana del cráter Gale (gale_elevacion.tif)' }
+    return buildDem(meta, elev, roughness3x3(elev, w, h), duneGeo, soil)
+  }
   const [metaRes, binRes, roughRes] = await Promise.all([
     fetch(`${base}data/${prefix}-dem.json`), fetch(`${base}data/${prefix}-dem.f32`), fetch(`${base}data/${prefix}-rough.f32`),
   ])
-  if (!metaRes.ok || !binRes.ok) throw new Error('No se pudo cargar el DEM (corre: npm run fetch-dem)')
+  if (!metaRes.ok || !binRes.ok) throw new Error(`No se pudo cargar el DEM ${prefix} (corre: npm run fetch-dem-1m)`)
   const meta = await metaRes.json()
   const elev = new Float32Array(await binRes.arrayBuffer())
   const rough = roughRes.ok ? new Float32Array(await roughRes.arrayBuffer()) : new Float32Array(elev.length).fill(NaN)
-  return buildDem(meta, elev, rough, await loadDunes(base))
+  return buildDem(meta, elev, rough, await loadDunes(base), await loadSoil())
 }
+
+// Inercia térmica por celda del DEM: promedio de los píxeles THEMIS (100 m) que caen en la celda.
+function soilOnGrid(dem, soil) {
+  const ti = new Float32Array(dem.n).fill(NaN)
+  if (!soil) return ti
+  for (let y = 0; y < dem.h; y++) {
+    const la1 = dem.latMax - y * dem.dLat, la0 = la1 - dem.dLat
+    for (let x = 0; x < dem.w; x++) {
+      const lo0 = dem.lonMin + x * dem.dLon
+      ti[y * dem.w + x] = soil.meanInBox(lo0, la0, lo0 + dem.dLon, la1)
+    }
+  }
+  return ti
+}
+
+// Polvo -> riesgo 0..1 en escala FÍSICA FIJA: inercia <= TI_DUST (superficie dominada por polvo) = 1,
+// >= TI_FIRM = 0, lineal entre ambos (la interpolación es supuesto nuestro). Sin dato = 0.
+const dustRiskOf = (ti) => (Number.isNaN(ti) ? 0 : Math.min(1, Math.max(0, (CONST.TI_FIRM - ti) / (CONST.TI_FIRM - CONST.TI_DUST))))
 
 // Fracción (0..1) de cada celda dentro de un campo de dunas: rasteriza los polígonos por líneas de barrido
 // sobre una submalla de SUB×SUB puntos por celda (regla par-impar) y promedia.
@@ -55,7 +112,7 @@ function rasterDunes(dem, geo) {
 }
 
 /** Construye la malla a partir de los datos ya cargados (sin red; se usa también en pruebas). */
-export function buildDem(meta, elev, rough, duneGeo = null) {
+export function buildDem(meta, elev, rough, duneGeo = null, soil = null) {
   const { w, h, cellM } = meta
   const [lonMin, latMin, lonMax, latMax] = meta.bbox
   const dLon = (lonMax - lonMin) / w
@@ -92,5 +149,7 @@ export function buildDem(meta, elev, rough, duneGeo = null) {
   const { visible, baseCell } = viewshed(out)
   const commRisk = Float32Array.from(visible, (v, i) => (Number.isNaN(elev[i]) ? NaN : v ? 0 : 1)) // 1 = sin línea de vista
   const sandRisk = rasterDunes(out, duneGeo) // fracción de la celda dentro de un campo de dunas USGS (0..1)
-  return { ...out, visible, commRisk, baseCell, sandRisk, ...simulate(out) }
+  const ti = soilOnGrid(out, soil) // inercia térmica THEMIS (J m⁻² K⁻¹ s⁻½) por celda
+  const dustRisk = Float32Array.from(ti, dustRiskOf)
+  return { ...out, visible, commRisk, baseCell, sandRisk, ti, dustRisk, ...simulate(out) }
 }

@@ -15,9 +15,9 @@ import { loadCuriosity, compareRoutes, cutAtSol, solDate } from './lib/curiosity
 
 // Pesos fijos de la ruta (ya no son controles): siempre se minimizan esfuerzo, radiación y rugosidad y se mantiene comunicación.
 // 'Sol' queda en 0: no aporta seguridad (no modelamos calor/energía) y la sombra sigue disponible como capa.
-const W = { effort: 1, rad: 2, rough: 1, comm: 1, sand: 1 }
+const W = { effort: 1, rad: 2, rough: 1, comm: 1, sand: 1, dust: 1 }
 // Modo comparación con Curiosity: solo relieve (esfuerzo por subidas/bajadas y el bloqueo por pendiente > 20°).
-const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, sand: 0 }
+const W_RELIEF = { effort: 1, rad: 0, rough: 0, comm: 0, sand: 0, dust: 0 }
 const LAYERS = [
   ['none', 'Ninguna'],
   ['rad', 'Radiación (rojo = más dosis)'],
@@ -25,6 +25,7 @@ const LAYERS = [
   ['comm', 'Comunicación (rojo = sin vista a la base)'],
   ['shade', 'Sombra (rojo = en sombra)'],
   ['sand', 'Campos de dunas USGS (rojo = dunas)'],
+  ['dust', 'Polvo, inercia térmica THEMIS (rojo = polvo)'],
 ]
 
 const Select = (props) => <select {...props} className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm" />

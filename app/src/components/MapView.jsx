@@ -44,7 +44,7 @@ const canvasFor = (dem) => {
 function heatUrl(dem, layer) {
   const { c, ctx, img } = canvasFor(dem)
   // todas las capas se expresan como riesgo 0..1 (azul = mejor, rojo = peor)
-  const risk = { rad: dem.radRisk, rough: dem.roughRisk, comm: dem.commRisk, shade: dem.shade, sand: dem.sandRisk }[layer]
+  const risk = { rad: dem.radRisk, rough: dem.roughRisk, comm: dem.commRisk, shade: dem.shade, sand: dem.sandRisk, dust: dem.dustRisk }[layer]
   for (let i = 0; i < dem.n; i++) {
     const t = risk[i]
     if (Number.isNaN(t) || Number.isNaN(dem.elev[i])) continue

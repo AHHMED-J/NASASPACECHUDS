@@ -38,7 +38,7 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Actividad solar" kind="modelo">{SOLAR[solar].label}. Cambia cuánto protege la atmósfera de la radiación.</Row>
           <Row title="Altura máxima" kind="info">{maxElev} m. Filtro de misión: bloquea todo lo más alto. No es un límite físico; la altura ya pesa vía la radiación.</Row>
           <Row title="Prioridades" kind="info">
-            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · dunas {w.sand}.
+            Fijas (ya no se editan): esfuerzo {w.effort} · radiación {w.rad} · rugosidad {w.rough} · comunicación {w.comm} · dunas {w.sand} · polvo {w.dust}.
             Cada factor está normalizado de 0 (ideal) a 1 (lo peor). Costo de cada metro = 1 + Σ peso × riesgo: con peso 1, lo peor de un factor hace que ese metro cueste el doble. Los pesos son una <b>decisión nuestra</b>, no una magnitud física.
           </Row>
           <Row title="Inicio y destino" kind="info">Los dos puntos que marcas con clic en el mapa.</Row>
@@ -67,6 +67,11 @@ export default function DataPanel({ onClose, state }) {
           <Row title="Campos de dunas" kind="real">
             Base de datos global de dunas de Marte del USGS (MGD3, Hayward et al. 2007, <a className="text-cyan-400 underline" href="https://pubs.usgs.gov/of/2007/1158/" target="_blank" rel="noreferrer">OFR 2007-1158</a>): 2 campos en Gale (1370-050 con las dunas Bagnold, 425 km²; 1376-059, 414 km²), mapeados con imágenes THEMIS y MOC.
             Cada celda guarda qué fracción cae dentro de un campo. Es el <b>contorno del campo</b>: dentro hay arena y también roca entre dunas. Encarece cruzar, no bloquea (Curiosity cruzó las dunas).
+          </Row>
+          <Row title="Polvo (inercia térmica)" kind="real">
+            Mosaico global de inercia térmica de THEMIS (Fergason et al. 2006, <a className="text-cyan-400 underline" href="https://astrogeology.usgs.gov/search/map/mars-themis-derived-global-thermal-inertia-mosaic" target="_blank" rel="noreferrer">USGS</a>), 100 m, promediado a la celda del mapa.
+            Inercia ≤ {CONST.TI_DUST} = superficie dominada por polvo (riesgo 1); ≥ {CONST.TI_FIRM} = firme (riesgo 0); lineal entre ambos.
+            <b>No marca dunas</b>: en Gale las dunas Bagnold (~450) dan lo mismo que la roca; por eso las dunas siguen saliendo del USGS.
           </Row>
           <Row title="Presión y temperatura de superficie" kind="modelo">
             Mars Climate Database v6 (LMD), escenario de polvo promedio, centro de la zona. Ahora: superficie {row ? (row.surf - 273.15).toFixed(0) : '–'} °C, aire {row ? (row.air - 273.15).toFixed(0) : '–'} °C, presión {row ? row.pres.toFixed(0) : '–'} Pa.
@@ -112,7 +117,7 @@ export default function DataPanel({ onClose, state }) {
 
         <H>6 · Lo que NO se considera</H>
         <ul className="list-disc pl-5 text-sm text-slate-400">
-          <li>Arena suelta fuera de los campos de dunas del USGS (parches pequeños, suelo blando) y la forma de cada duna dentro del campo.</li>
+          <li>Arena suelta fuera de los campos de dunas del USGS (parches pequeños) y la forma de cada duna dentro del campo. La inercia térmica solo marca el polvo fino.</li>
           <li>Rocas individuales y pendiente a escala de metros.</li>
           <li>Consumo de oxígeno, energía o autonomía del traje; la gravedad de Marte en el esfuerzo.</li>
           <li>Tormentas de polvo, cambios del escenario de polvo, y variación de la temperatura dentro de la zona.</li>

@@ -10,6 +10,7 @@ export const REASONS = {
   nodata: { icon: '?', label: 'Sin datos', color: '#94a3b8' },
   effort: { icon: '↗', label: 'Subida', color: '#f59e0b' },
   sand: { icon: '≈', label: 'Dunas', color: '#d97706' },
+  dust: { icon: '░', label: 'Polvo', color: '#a16207' },
   rad: { icon: '☢', label: 'Radiación', color: '#a855f7' },
   comm: { icon: '📡', label: 'Comunicación', color: '#3b82f6' },
   rough: { icon: '▦', label: 'Terreno rugoso', color: '#14b8a6' },
@@ -57,13 +58,13 @@ function turns(cells, tol) {
   return idx
 }
 
-const ZERO = () => ({ dist: 0, rad: 0, rough: 0, comm: 0, sand: 0, effort: 0 })
+const ZERO = () => ({ dist: 0, rad: 0, rough: 0, comm: 0, sand: 0, dust: 0, effort: 0 })
 
 // Recorre una lista de celdas y suma costos por componente + datos físicos para las frases
 function evaluate(dem, cells, w, filter) {
   const W = dem.w
   const sum = ZERO()
-  let climb = 0, sandM = 0, noCommM = 0, maxSlope = 0, block = null
+  let climb = 0, sandM = 0, dustM = 0, noCommM = 0, maxSlope = 0, block = null
   for (let k = 1; k < cells.length; k++) {
     const i = cells[k - 1][1] * W + cells[k - 1][0], j = cells[k][1] * W + cells[k][0]
     const diag = cells[k][0] !== cells[k - 1][0] && cells[k][1] !== cells[k - 1][1]
@@ -77,11 +78,12 @@ function evaluate(dem, cells, w, filter) {
     const dz = dem.elev[j] - dem.elev[i]
     if (dz > 0) climb += dz
     sandM += p.dist * ((dem.sandRisk && dem.sandRisk[j]) || 0)
+    dustM += p.dist * ((dem.dustRisk && dem.dustRisk[j]) || 0)
     if (dem.commRisk[j] === 1) noCommM += p.dist
     if (dem.slope[j] > maxSlope) maxSlope = dem.slope[j]
   }
   const total = Object.values(sum).reduce((a, b) => a + b, 0)
-  return { sum, total, climb, sandM, noCommM, maxSlope, block }
+  return { sum, total, climb, sandM, dustM, noCommM, maxSlope, block }
 }
 
 const fmtM = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`)
@@ -117,7 +119,7 @@ export function explainRoute(dem, route, w, filter) {
           : `Gira a la ${side}: ir derecho pasa por una zona sin datos de relieve.`
     } else {
       // diferencia por componente (atajo − real): la mayor positiva es la causa
-      const keys = ['effort', 'sand', 'rad', 'comm', 'rough']
+      const keys = ['effort', 'sand', 'dust', 'rad', 'comm', 'rough']
       const diffs = keys.map((key) => [key, S.sum[key] - A.sum[key]]).sort((p, q) => q[1] - p[1])
       if (!(S.total > A.total) || diffs[0][1] <= 0) continue // giro sin motivo claro (efecto de la cuadrícula)
       reason = diffs[0][0]
@@ -125,6 +127,7 @@ export function explainRoute(dem, route, w, filter) {
       const why = {
         effort: `ir derecho sube ${Math.round(S.climb - A.climb)} m más; el desvío es más llano`,
         sand: `ir derecho cruza ${fmtM(S.sandM - A.sandM)} más de campo de dunas (USGS)`,
+        dust: `ir derecho cruza ${fmtM(S.dustM - A.dustM)} más de suelo con polvo (inercia térmica THEMIS)`,
         rad: 'ir derecho pasa por terreno más alto, con más radiación',
         comm: `ir derecho pierde la línea de vista con la base durante ${fmtM(S.noCommM - A.noCommM)} más`,
         rough: 'ir derecho cruza terreno más rugoso',

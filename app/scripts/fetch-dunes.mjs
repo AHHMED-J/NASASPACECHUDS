@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const URL_GML = 'https://pubs.usgs.gov/of/2007/1158/GML.zip'
-const BOX = { lonMin: 136.4, lonMax: 139.2, latMin: -6.8, latMax: -4.0 } // igual que fetch-dem
+const BOX = { lonMin: 136.4, lonMax: 139.2, latMin: -6.8, latMax: -4.0 } // igual que fetch-mapas
 
 const dir = mkdtempSync(join(tmpdir(), 'mgd3-'))
 try {

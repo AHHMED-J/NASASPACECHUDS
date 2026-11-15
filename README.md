@@ -29,6 +29,8 @@ npm install geotiff
 3. `cd app && npm install && npm install geotiff && npm run dev`
 4. Abre http://localhost:5173
 
+Los mapas del cráter ya están en el repo: `app/public/data/gale_elevacion.tif` (DEM MOLA–HRSC, 200 m) y `app/public/data/gale_suelo.tif` (inercia térmica THEMIS, 100 m). La app los lee localmente con `geotiff`. Para volver a crearlos: `cd app && npm run fetch-mapas`. El script lee solo la ventana de Gale de los GeoTIFF globales del USGS, sin descargar los archivos completos.
+
 ## Reglas
 
 - Instalar paquetes con `npm install <paquete>` y hacer commit de `package.json` y `package-lock.json`. El lockfile no se borra.

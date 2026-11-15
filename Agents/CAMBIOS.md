@@ -6,6 +6,34 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-15 11:41 — Mapas GeoTIFF locales y factor de polvo (inercia térmica THEMIS)
+
+**Agente:** Claude
+
+La app del cráter Gale ahora lee dos **GeoTIFF locales** con `geotiff`, sin servicios externos para los datos de la ruta:
+- `app/public/data/gale_elevacion.tif`: el mismo DEM MOLA–HRSC de 200 m de antes. Es **idéntico** al `.f32` anterior (diferencia 0 m), así que las rutas de relieve no cambian.
+- `app/public/data/gale_suelo.tif`: inercia térmica THEMIS cuantitativa, 100 m, recuadro 30S120E.
+- Se crean con `npm run fetch-mapas` (antes `fetch-dem`). El script lee solo la ventana de Gale de los archivos globales del USGS (~22 s).
+
+**Código:**
+- Nuevo `app/src/lib/mapManager.js`: carga un `.tif` y responde el valor de una celda (`pixel(x, y)`), de un punto (`atLonLat`) o el promedio de un recuadro.
+- `dem.js`: carga los `.tif`. La rugosidad se calcula al cargar y sale idéntica a la que estaba guardada.
+- Se borraron `gale-dem.f32`, `gale-dem.json` y `gale-rough.f32`. `fetch-mcd.mjs` ahora toma el centro de Gale del `.tif`.
+
+**Factor nuevo, "Polvo":**
+- Riesgo 1 con inercia ≤ 100 (superficie dominada por polvo, Fergason et al. 2012) y 0 con inercia ≥ 250. La transición lineal es supuesto nuestro.
+- Peso 1, igual que los demás; en la comparación con Curiosity va en 0.
+- Está en el costo de A*, en la explicación de giros ("Polvo"), en la lista de capas del mapa y en el panel de datos.
+- **No reemplaza a las dunas del USGS:** la inercia no separa dunas de roca.
+
+**Se mantiene igual:** bbox actual, pendiente máxima de 20° y todos los factores (subida, radiación, rugosidad, comunicación, dunas). Los costos van en g(n); la heurística sigue siendo admisible.
+
+**Prueba:** con la demo corriendo, la ruta se traza en ~330 ms leyendo los `.tif`, sin errores. De 30 rutas al azar, 16 cambian con el polvo (casi todas mínimamente), y 1 giro lo explica el polvo.
+- En Gale no hay superficie ≤ 100, y el 44.8 % de las celdas tiene algo de riesgo (máximo 0.96).
+- El mosaico THEMIS tiene costuras visibles (franjas verticales) que encarecen un poco esas franjas.
+
+---
+
 ## 2026-11-15 00:05 — PDF: sección de sales dañinas
 
 **Agente:** Claude

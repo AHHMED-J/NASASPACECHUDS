@@ -12,6 +12,8 @@ export const CONST = {
   ANTENNA_H_M: 2, // altura de antena (base y astronauta)
   MARS_OBLIQUITY_DEG: 25.19,
   CELL_M: 200, // DEM del cráter completo; la zona de Curiosity también existe a 50 m (DEM de 1 m promediado)
+  TI_DUST: 100, // inercia térmica (J m⁻² K⁻¹ s⁻½) a partir de la cual la superficie está dominada por polvo (riesgo 1)
+  TI_FIRM: 250, // inercia térmica desde la que ya no se considera polvo (riesgo 0)
 }
 
 export const FIXED = [
@@ -41,6 +43,10 @@ export const FIXED = [
     source: 'Valor astronómico estándar; se usa para calcular la posición del Sol.', url: null, caveat: '' },
   { id: 'antenna', label: 'Altura de antena (base y astronauta)', value: `${CONST.ANTENNA_H_M} m`, kind: 'supuesto',
     source: 'Decisión nuestra.', url: null, caveat: 'No verificado contra ningún equipo real.' },
+  { id: 'dust', label: 'Polvo según la inercia térmica', value: `≤ ${CONST.TI_DUST} = polvo · ≥ ${CONST.TI_FIRM} = firme`, kind: 'fuente',
+    source: 'Fergason et al. 2012 (Space Sci. Rev. 170): inercia < 100 = superficie dominada por polvo; en la zona de aterrizaje de Gale, 250–410 = superficie compacta mezclada con material suelto.',
+    url: 'https://pubs.usgs.gov/publication/70038495',
+    caveat: 'La transición lineal entre 100 y 250 es supuesto nuestro. La inercia no distingue dunas de roca (por eso las dunas siguen saliendo del USGS).' },
   { id: 'cell', label: 'Tamaño de celda del mapa', value: `${CONST.CELL_M} m`, kind: 'supuesto',
     source: 'Resolución del DEM global HRSC+MOLA (USGS) usado para cubrir todo el cráter Gale.', url: 'https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m', caveat: 'La pendiente (y la rugosidad) se suavizan a esta escala: se subestiman pendientes abruptas.' },
 ]

@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "fetch-dem": "node scripts/fetch-dem.mjs",
+    "fetch-mapas": "node scripts/fetch-mapas.mjs",
     "fetch-dem-1m": "node scripts/fetch-dem-1m.mjs",
     "fetch-mcd": "node scripts/fetch-mcd.mjs",
     "fetch-curiosity": "node scripts/fetch-curiosity.mjs",

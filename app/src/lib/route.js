@@ -48,21 +48,21 @@ export function isBlocked(dem, i, { maxElev, maxSlope }) {
 let cache = null
 function prepare(dem, filter, w) {
   const c = cache
-  if (c && c.elev === dem.elev && c.slope === dem.slope && c.rad === dem.radRisk && c.comm === dem.commRisk && c.rough === dem.roughRisk && c.sand === dem.sandRisk &&
-      c.maxElev === filter.maxElev && c.maxSlope === filter.maxSlope && c.w.rad === w.rad && c.w.rough === w.rough && c.w.comm === w.comm && c.w.sand === (w.sand || 0)) return c
-  const { n, elev, slope, radRisk, roughRisk, commRisk, sandRisk } = dem
+  if (c && c.elev === dem.elev && c.slope === dem.slope && c.rad === dem.radRisk && c.comm === dem.commRisk && c.rough === dem.roughRisk && c.sand === dem.sandRisk && c.dust === dem.dustRisk &&
+      c.maxElev === filter.maxElev && c.maxSlope === filter.maxSlope && c.w.rad === w.rad && c.w.rough === w.rough && c.w.comm === w.comm && c.w.sand === (w.sand || 0) && c.w.dust === (w.dust || 0)) return c
+  const { n, elev, slope, radRisk, roughRisk, commRisk, sandRisk, dustRisk } = dem
   const cost = new Float32Array(n)
   let minStatic = Infinity
   for (let i = 0; i < n; i++) {
     if (!(elev[i] <= filter.maxElev) || !(slope[i] <= filter.maxSlope)) { cost[i] = Infinity; continue }
     const v = 1 + w.rad * (radRisk[i] || 0) + w.rough * (roughRisk[i] || 0) + w.comm * (commRisk[i] || 0) +
-      (w.sand || 0) * ((sandRisk && sandRisk[i]) || 0)
+      (w.sand || 0) * ((sandRisk && sandRisk[i]) || 0) + (w.dust || 0) * ((dustRisk && dustRisk[i]) || 0)
     cost[i] = v
     if (v < minStatic) minStatic = v
   }
   // Heurística admisible: cada celda permitida cuesta como mínimo minStatic por metro (el esfuerzo solo suma).
-  cache = { elev: dem.elev, slope: dem.slope, rad: dem.radRisk, comm: dem.commRisk, rough: dem.roughRisk, sand: dem.sandRisk,
-    maxElev: filter.maxElev, maxSlope: filter.maxSlope, w: { ...w, sand: w.sand || 0 }, cost, mult: Number.isFinite(minStatic) ? minStatic : 1 }
+  cache = { elev: dem.elev, slope: dem.slope, rad: dem.radRisk, comm: dem.commRisk, rough: dem.roughRisk, sand: dem.sandRisk, dust: dem.dustRisk,
+    maxElev: filter.maxElev, maxSlope: filter.maxSlope, w: { ...w, sand: w.sand || 0, dust: w.dust || 0 }, cost, mult: Number.isFinite(minStatic) ? minStatic : 1 }
   return cache
 }
 
@@ -72,7 +72,7 @@ const LEN = DX.map((x, k) => Math.hypot(x, DY[k]))
 const OCT = Math.SQRT2 - 1
 
 /** Devuelve { cells:[[x,y]...], distanceKm } o null si no hay ruta.
- *  w = { effort, rad, rough, comm, sand } (pesos de preferencia 0-5). */
+ *  w = { effort, rad, rough, comm, sand, dust } (pesos de preferencia 0-5). */
 export function findRoute(dem, start, end, filter, w = { effort: 1, rad: 0, rough: 0, comm: 0, sand: 0 }) {
   const { w: W, h: H, n, cellM, elev } = dem
   const { cost, mult } = prepare(dem, filter, w)
@@ -146,6 +146,7 @@ export function stepParts(dem, i, j, w) {
     rough: dist * w.rough * (dem.roughRisk[j] || 0),
     comm: dist * w.comm * (dem.commRisk[j] || 0),
     sand: dist * (w.sand || 0) * ((dem.sandRisk && dem.sandRisk[j]) || 0),
+    dust: dist * (w.dust || 0) * ((dem.dustRisk && dem.dustRisk[j]) || 0),
     effort: 0,
   }
   if (w.effort > 0) {

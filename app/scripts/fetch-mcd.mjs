@@ -2,10 +2,13 @@
 // para 4 estaciones (Ls) x 12 horas locales. Escenario: "climatology ave solar".
 // Uso: npm run fetch-mcd   (~1 min; hace 48 consultas con pausa de 1 s: la web es "para uso moderado")
 // Fuente: https://www-mars.lmd.jussieu.fr/mcd_python/  (créditos: LMD/OU/IAA/ESA/CNES)
-import { writeFileSync, readFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { fromFile } from 'geotiff'
 
-// centro del DEM descargado (corre antes `npm run fetch-dem`)
-const { bbox } = JSON.parse(readFileSync(new URL('../public/data/gale-dem.json', import.meta.url)))
+// centro del mapa de elevación local (corre antes `npm run fetch-mapas`)
+const img = await (await fromFile(fileURLToPath(new URL('../public/data/gale_elevacion.tif', import.meta.url)))).getImage()
+const bbox = img.getBoundingBox() // [lonMin, latMin, lonMax, latMax]
 const LON = +((bbox[0] + bbox[2]) / 2).toFixed(3), LAT = +((bbox[1] + bbox[3]) / 2).toFixed(3)
 const LS = [0, 90, 180, 270]
 const LT = Array.from({ length: 12 }, (_, i) => i * 2)
