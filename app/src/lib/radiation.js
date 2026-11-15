@@ -31,9 +31,9 @@ const REF = {
 const SLOPE_PHI500 = 0.126 / 250 // mSv/día por Pa, de HZETRN2015 a Φ=500 MV (126 uSv/día en 250 Pa)
 
 export const SOLAR = {
-  min: { label: 'Mínimo solar (Φ≈200 MV)', phi: 200 },
-  mid: { label: 'Medio (Φ≈500 MV)', phi: 500 },
-  max: { label: 'Máximo (Φ≈900 MV)', phi: 900 },
+  min: { label: 'Solar minimum (Φ≈200 MV)', phi: 200 },
+  mid: { label: 'Moderate (Φ≈500 MV)', phi: 500 },
+  max: { label: 'Solar maximum (Φ≈900 MV)', phi: 900 },
 }
 
 const pressureAt = (h) => REF.pressure * Math.exp(-(h - REF.elev) / H_SCALE)

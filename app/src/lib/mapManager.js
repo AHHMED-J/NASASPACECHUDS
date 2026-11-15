@@ -13,7 +13,7 @@ export async function loadTif(name) {
   if (cache.has(name)) return cache.get(name)
   const p = (async () => {
     const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`)
-    if (!res.ok) throw new Error(`No se encontró data/${name} (corre: npm run fetch-mapas)`)
+    if (!res.ok) throw new Error(`Missing data/${name} (run: npm run fetch-mapas)`)
     const tiff = await fromArrayBuffer(await res.arrayBuffer())
     const img = await tiff.getImage()
     const w = img.getWidth(), h = img.getHeight()

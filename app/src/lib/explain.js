@@ -5,15 +5,15 @@ import { CONST } from './constants.js'
 
 // Etiquetas y colores por motivo (los usan el mapa y la barra lateral)
 export const REASONS = {
-  slope: { icon: '⛰', label: 'Pendiente', color: '#ef4444' },
-  height: { icon: '▲', label: 'Altura máxima', color: '#f97316' },
-  nodata: { icon: '?', label: 'Sin datos', color: '#94a3b8' },
-  effort: { icon: '↗', label: 'Subida', color: '#f59e0b' },
-  sand: { icon: '≈', label: 'Dunas', color: '#d97706' },
-  dust: { icon: '░', label: 'Polvo', color: '#a16207' },
-  rad: { icon: '☢', label: 'Radiación', color: '#a855f7' },
-  comm: { icon: '📡', label: 'Comunicación', color: '#3b82f6' },
-  rough: { icon: '▦', label: 'Terreno rugoso', color: '#14b8a6' },
+  slope: { icon: '⛰', label: 'Slope', color: '#142f57' },
+  height: { icon: '▲', label: 'Maximum elevation', color: '#142f57' },
+  nodata: { icon: '?', label: 'No data', color: '#142f57' },
+  effort: { icon: '↗', label: 'Climb', color: '#142f57' },
+  sand: { icon: '≈', label: 'Dunes', color: '#142f57' },
+  dust: { icon: '░', label: 'Dust', color: '#142f57' },
+  rad: { icon: '☢', label: 'Radiation', color: '#142f57' },
+  comm: { icon: '📡', label: 'Communication', color: '#142f57' },
+  rough: { icon: '▦', label: 'Rough terrain', color: '#142f57' },
 }
 
 // Celdas de una línea recta entre dos celdas (Bresenham, 8-conectada)
@@ -106,17 +106,17 @@ export function explainRoute(dem, route, w, filter) {
     // lado del giro: + = el vértice queda a la izquierda del atajo (malla: x = este, y = sur)
     const [ax, ay] = cells[a], [bx, by] = cells[b], [vx, vy] = cells[k]
     const cross = (bx - ax) * -(vy - ay) - -(by - ay) * (vx - ax)
-    const side = cross > 0 ? 'izquierda' : 'derecha'
+    const side = cross > 0 ? 'left' : 'right'
     // metros que añade el desvío frente a la línea recta real (no la escalera de celdas)
     const extra = A.sum.dist - Math.hypot(cells[b][0] - cells[a][0], cells[b][1] - cells[a][1]) * dem.cellM
     let reason, text
     if (S.block) {
       reason = S.block.kind
       text = reason === 'slope'
-        ? `Gira a la ${side}: ir derecho cruza una pendiente de ${S.block.slope.toFixed(0)}° (máximo ${CONST.MAX_SLOPE_DEG}°).`
+        ? `Turns ${side}: going straight crosses a slope of ${S.block.slope.toFixed(0)}° (maximum ${CONST.MAX_SLOPE_DEG}°).`
         : reason === 'height'
-          ? `Gira a la ${side}: ir derecho supera la altura máxima (${Math.round(S.block.elev)} m).`
-          : `Gira a la ${side}: ir derecho pasa por una zona sin datos de relieve.`
+          ? `Turns ${side}: going straight exceeds the elevation limit (${Math.round(S.block.elev)} m).`
+          : `Turns ${side}: going straight crosses an area without terrain data.`
     } else {
       // diferencia por componente (atajo − real): la mayor positiva es la causa
       const keys = ['effort', 'sand', 'dust', 'rad', 'comm', 'rough']
@@ -125,15 +125,15 @@ export function explainRoute(dem, route, w, filter) {
       reason = diffs[0][0]
       const gain = (100 * (S.total - A.total)) / S.total
       const why = {
-        effort: `ir derecho sube ${Math.round(S.climb - A.climb)} m más; el desvío es más llano`,
-        sand: `ir derecho cruza ${fmtM(S.sandM - A.sandM)} más de campo de dunas (USGS)`,
-        dust: `ir derecho cruza ${fmtM(S.dustM - A.dustM)} más de suelo con polvo (inercia térmica THEMIS)`,
-        rad: 'ir derecho pasa por terreno más alto, con más radiación',
-        comm: `ir derecho pierde la línea de vista con la base durante ${fmtM(S.noCommM - A.noCommM)} más`,
-        rough: 'ir derecho cruza terreno más rugoso',
+        effort: `going straight adds ${Math.round(S.climb - A.climb)} m of climbing; the detour is flatter`,
+        sand: `going straight crosses ${fmtM(S.sandM - A.sandM)} more dune-field terrain (USGS)`,
+        dust: `going straight crosses ${fmtM(S.dustM - A.dustM)} more dusty ground (THEMIS thermal inertia)`,
+        rad: 'going straight crosses higher terrain with higher modeled radiation',
+        comm: `going straight loses line of sight to base for ${fmtM(S.noCommM - A.noCommM)} more`,
+        rough: 'going straight crosses rougher terrain',
       }[reason]
-      const add = extra < 25 ? 'casi sin alargar el camino' : `añade ${fmtM(extra)} de camino`
-      text = `Gira a la ${side}: ${why}. El desvío ${add} y cuesta ${gain.toFixed(0)}% menos.`
+      const add = extra < 25 ? 'adds almost no distance' : `adds ${fmtM(extra)} of distance`
+      text = `Turns ${side}: ${why}. The detour ${add} and has ${gain.toFixed(0)}% lower modeled cost.`
     }
     items.push({ n: items.length + 1, at: cells[k], side, reason, text, shortcut: [cells[a], cells[b]], hot: S.block?.at ?? null, extraM: extra })
   }

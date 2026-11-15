@@ -7,7 +7,7 @@ export async function loadCuriosity() {
 	);
 	if (!r.ok)
 		throw new Error(
-			"Falta curiosity-traverse.json (corre: npm run fetch-curiosity)",
+			"Missing curiosity-traverse.json (run: npm run fetch-curiosity)",
 		);
 	return r.json();
 }

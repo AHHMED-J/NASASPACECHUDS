@@ -6,6 +6,28 @@ Cada entrada indica qué agente hizo el cambio. Hasta la entrada de las 17:09, l
 
 ---
 
+## 2026-11-15 11:59 — Diseño de la rama `screen` integrado (merge sin commit)
+
+**Agente:** Claude
+
+Se hizo merge de `origin/screen` (diseño de Sofia y Codex) en `feature/mars-route-demo`:
+- **Diseño:** mapa a pantalla completa, panel Admin acoplado a la derecha con botones Admin y Center, astronauta como marcador de inicio, resumen negro de km y horas, aviso flotante al tocar un giro y encuadre automático de la ruta.
+- **Textos de la interfaz en inglés,** como en `screen`. También los del factor nuevo de polvo.
+
+Se conservaron, dentro del panel Admin:
+- "Why this route", con la lista numerada y el perfil de elevación.
+- "Compare with Curiosity", con el recorte por sol, la cuadrícula de 50 m o 200 m, las dunas y las métricas.
+- "Data sources and assumptions": abre el panel de datos, que ahora incluye el polvo y los `.tif` locales.
+
+**No se tocó** el cálculo ni los datos: mapas `.tif`, factor de polvo, pesos, pendiente de 20°, radiación y fuentes.
+- `screen` bajaba la altura máxima por defecto al 45 % del rango; se dejó en **75 %**, como antes, porque cambia qué celdas quedan bloqueadas.
+
+**Prueba en el navegador, sin errores:** ruta en ~330 ms, panel Admin, capa de polvo, panel de datos y comparación con Curiosity (sol 5073: distancia media 1.02 km, 49 % a menos de 500 m).
+
+Las entradas de Codex de la rama `screen` se movieron a su lugar por hora (lo más nuevo arriba) sin cambiar su texto.
+
+---
+
 ## 2026-11-15 11:41 — Mapas GeoTIFF locales y factor de polvo (inercia térmica THEMIS)
 
 **Agente:** Claude
@@ -31,6 +53,61 @@ La app del cráter Gale ahora lee dos **GeoTIFF locales** con `geotiff`, sin ser
 **Prueba:** con la demo corriendo, la ruta se traza en ~330 ms leyendo los `.tif`, sin errores. De 30 rutas al azar, 16 cambian con el polvo (casi todas mínimamente), y 1 giro lo explica el polvo.
 - En Gale no hay superficie ≤ 100, y el 44.8 % de las celdas tiene algo de riesgo (máximo 0.96).
 - El mosaico THEMIS tiene costuras visibles (franjas verticales) que encarecen un poco esas franjas.
+
+---
+
+## 2026-11-15 01:49 — Codex — Encuadre automático de ruta
+Al completar el cálculo se encuadra toda la ruta con animación y margen para Ajustes/Centrar y métricas, según el tamaño real de pantalla. No se reencuadra al seleccionar marcadores o cambiar capas. Se limita acercamiento en rutas cortas y se respeta movimiento reducido. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:45 — Codex — Revisión CSS Lovable
+Integrado CSS proporcionado por usuario en screen.css: cristal translúcido, botones redondeados, icono Ajustes y resumen central con acentos. Variables limitadas a screen-app y controles OpenLayers a screen-map. Conservados botones grandes, foco visible, áreas seguras, tamaños táctiles, controles existentes de panel y capas de modales; ajustes responsivos y movimiento reducido. Sin cambios JSX, cálculos o datos. Sin archivos adicionales en el proyecto.
+
+---
+
+## 2026-11-15 01:33 — Codex — Acciones arriba a la derecha
+Movidos Ajustes y Centrar a la esquina superior derecha en todas las orientaciones, conservando tamaño y separación. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:30 — Codex — Retirar controles de zoom
+Desactivados botones + y − mediante la configuración de controles de OpenLayers. Se conserva zoom por rueda y gesto táctil. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:29 — Codex — Escala 1.5x
+Botones Ajustes/Centrar ampliados de 160x72 a 240x108 px, texto de 20 a 30 px. Zoom de 64 a 96 px. Valores km/hrs de 22 a 33 px. Ajustados espacios para evitar superposición. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:28 — Codex — Botones grandes
+Ajustes y Centrar ampliados a 160 x 72 px con texto de 20 px y separación de 16 px; zoom ampliado a 64 x 64 px con símbolos de 30 px. Ajustadas posiciones para conservar separación del resumen y orientación horizontal. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:25 — Codex — Selección directa como main
+Restaurada selección de ruta directamente sobre el mapa sin activar Planificar: primer clic inicio, segundo destino, siguiente clic inicia otra ruta. Arrastrar conserva el desplazamiento como en main. Se conserva selección explícita desde Ajustes. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:19 — Codex — Resumen por unidades
+Eliminados títulos Distancia/Tiempo a pie y guiones del resumen inferior. Se muestran valores con km y hrs; antes de calcular una ruta, 0 km y 0 hrs. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:17 — Codex — Ajustes flotante
+Eliminada barra superior completa (título, subtítulo y estado Mapa listo). Se conserva únicamente el botón Ajustes sobre Centrar, también en horizontal. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:15 — Codex — Limpieza de controles en screen
+Retirados botones flotantes Planificar, Capas y Resultados y texto Ver detalles. Las herramientas siguen accesibles desde Ajustes; se mantienen distancia y tiempo. Sin archivos nuevos.
+
+---
+
+## 2026-11-15 01:08 — Codex — Interfaz compacta (branch screen)
+Mapa a pantalla completa sin sidebar permanente. Controles Planificar, Capas, Resultados y Ajustes abren panel inferior con cierre, Escape y manejo de foco. Conservadas funciones de escenario, filtros, Curiosity, elevación, explicaciones y datos considerados. Selección de inicio/destino explícita; métricas reales de distancia/tiempo siempre disponibles. Botón para centrar en cobertura del DEM. Diseño adaptable a pantalla pequeña y orientación horizontal. Nuevo archivo: app/src/screen.css. Modificados: App.jsx, components/MapView.jsx, index.css y este registro. Sin commits ni push.
 
 ---
 
